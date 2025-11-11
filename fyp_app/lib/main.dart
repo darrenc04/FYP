@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_app/firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'pages/login_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -32,21 +36,25 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    
+
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(_fadeController);
-    
+
+    _fadeAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(_fadeController);
+
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         _fadeController.forward().then((_) {
@@ -81,7 +89,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                 child: Image.asset(
                   'assets/logo.png',
                   fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => const FlutterLogo(size: 160),
+                  errorBuilder: (context, error, stackTrace) =>
+                      const FlutterLogo(size: 160),
                 ),
               ),
               const Text(
