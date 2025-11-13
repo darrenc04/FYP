@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fyp_app/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:fyp_app/pages/home_page.dart';
+import 'package:fyp_app/pages/setting_page.dart';
 import 'pages/login_page.dart';
 
 Future<void> main() async {
@@ -25,6 +27,8 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginPage(),
+        '/home': (context) => const HomePage(),
+        '/settings': (context) => const SettingPage(),
       },
     );
   }

@@ -41,6 +41,10 @@ dependencies:
 
   # For Google Sign-In
   google_sign_in: ^6.1.0
+  local_auth: ^2.3.0
+  device_info_plus: ^12.2.0
+  local_auth_android: ^1.0.52
+  local_auth_ios: ^1.1.7
 
  
 
