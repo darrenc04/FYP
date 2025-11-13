@@ -9,8 +9,11 @@
       "dependencies": [
         "cloud_firestore",
         "cupertino_icons",
+        "firebase_auth",
+        "firebase_core",
         "firebase_storage",
-        "flutter"
+        "flutter",
+        "google_sign_in"
       ],
       "devDependencies": [
         "flutter_lints",
@@ -19,7 +22,7 @@
     },
     {
       "name": "flutter_lints",
-      "version": "5.0.0",
+      "version": "6.0.0",
       "dependencies": [
         "lints"
       ]
@@ -28,28 +31,29 @@
       "name": "flutter_test",
       "version": "0.0.0",
       "dependencies": [
-        "async",
-        "boolean_selector",
-        "characters",
         "clock",
         "collection",
         "fake_async",
         "flutter",
-        "leak_tracker",
         "leak_tracker_flutter_testing",
-        "leak_tracker_testing",
         "matcher",
-        "material_color_utilities",
         "meta",
         "path",
-        "source_span",
         "stack_trace",
         "stream_channel",
-        "string_scanner",
-        "term_glyph",
         "test_api",
-        "vector_math",
-        "vm_service"
+        "vector_math"
+      ]
+    },
+    {
+      "name": "google_sign_in",
+      "version": "6.3.0",
+      "dependencies": [
+        "flutter",
+        "google_sign_in_android",
+        "google_sign_in_ios",
+        "google_sign_in_platform_interface",
+        "google_sign_in_web"
       ]
     },
     {
@@ -64,6 +68,18 @@
       ]
     },
     {
+      "name": "firebase_auth",
+      "version": "6.1.2",
+      "dependencies": [
+        "firebase_auth_platform_interface",
+        "firebase_auth_web",
+        "firebase_core",
+        "firebase_core_platform_interface",
+        "flutter",
+        "meta"
+      ]
+    },
+    {
       "name": "cloud_firestore",
       "version": "6.1.0",
       "dependencies": [
@@ -72,6 +88,16 @@
         "collection",
         "firebase_core",
         "firebase_core_platform_interface",
+        "flutter",
+        "meta"
+      ]
+    },
+    {
+      "name": "firebase_core",
+      "version": "4.2.1",
+      "dependencies": [
+        "firebase_core_platform_interface",
+        "firebase_core_web",
         "flutter",
         "meta"
       ]
@@ -95,25 +121,8 @@
     },
     {
       "name": "lints",
-      "version": "5.1.1",
+      "version": "6.0.0",
       "dependencies": []
-    },
-    {
-      "name": "vm_service",
-      "version": "15.0.0",
-      "dependencies": []
-    },
-    {
-      "name": "term_glyph",
-      "version": "1.2.2",
-      "dependencies": []
-    },
-    {
-      "name": "string_scanner",
-      "version": "1.4.1",
-      "dependencies": [
-        "source_span"
-      ]
     },
     {
       "name": "stream_channel",
@@ -123,45 +132,9 @@
       ]
     },
     {
-      "name": "source_span",
-      "version": "1.10.1",
-      "dependencies": [
-        "collection",
-        "path",
-        "term_glyph"
-      ]
-    },
-    {
       "name": "meta",
       "version": "1.16.0",
       "dependencies": []
-    },
-    {
-      "name": "material_color_utilities",
-      "version": "0.11.1",
-      "dependencies": [
-        "collection"
-      ]
-    },
-    {
-      "name": "leak_tracker_testing",
-      "version": "3.0.1",
-      "dependencies": [
-        "leak_tracker",
-        "matcher",
-        "meta"
-      ]
-    },
-    {
-      "name": "leak_tracker",
-      "version": "10.0.9",
-      "dependencies": [
-        "clock",
-        "collection",
-        "meta",
-        "path",
-        "vm_service"
-      ]
     },
     {
       "name": "collection",
@@ -169,29 +142,8 @@
       "dependencies": []
     },
     {
-      "name": "characters",
-      "version": "1.4.0",
-      "dependencies": []
-    },
-    {
-      "name": "boolean_selector",
-      "version": "2.1.2",
-      "dependencies": [
-        "source_span",
-        "string_scanner"
-      ]
-    },
-    {
-      "name": "async",
-      "version": "2.13.0",
-      "dependencies": [
-        "collection",
-        "meta"
-      ]
-    },
-    {
       "name": "leak_tracker_flutter_testing",
-      "version": "3.0.9",
+      "version": "3.0.10",
       "dependencies": [
         "flutter",
         "leak_tracker",
@@ -202,7 +154,7 @@
     },
     {
       "name": "vector_math",
-      "version": "2.1.4",
+      "version": "2.2.0",
       "dependencies": []
     },
     {
@@ -243,7 +195,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.4",
+      "version": "0.7.6",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -254,6 +206,42 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "google_sign_in_web",
+      "version": "0.12.4+4",
+      "dependencies": [
+        "flutter",
+        "flutter_web_plugins",
+        "google_identity_services_web",
+        "google_sign_in_platform_interface",
+        "http",
+        "web"
+      ]
+    },
+    {
+      "name": "google_sign_in_platform_interface",
+      "version": "2.5.0",
+      "dependencies": [
+        "flutter",
+        "plugin_platform_interface"
+      ]
+    },
+    {
+      "name": "google_sign_in_ios",
+      "version": "5.9.0",
+      "dependencies": [
+        "flutter",
+        "google_sign_in_platform_interface"
+      ]
+    },
+    {
+      "name": "google_sign_in_android",
+      "version": "6.2.1",
+      "dependencies": [
+        "flutter",
+        "google_sign_in_platform_interface"
       ]
     },
     {
@@ -296,13 +284,30 @@
       ]
     },
     {
-      "name": "firebase_core",
-      "version": "4.2.1",
+      "name": "firebase_auth_web",
+      "version": "6.1.0",
       "dependencies": [
-        "firebase_core_platform_interface",
+        "firebase_auth_platform_interface",
+        "firebase_core",
         "firebase_core_web",
         "flutter",
-        "meta"
+        "flutter_web_plugins",
+        "http_parser",
+        "meta",
+        "web"
+      ]
+    },
+    {
+      "name": "firebase_auth_platform_interface",
+      "version": "8.1.4",
+      "dependencies": [
+        "_flutterfire_internals",
+        "collection",
+        "firebase_core",
+        "flutter",
+        "http",
+        "meta",
+        "plugin_platform_interface"
       ]
     },
     {
@@ -331,9 +336,89 @@
       ]
     },
     {
+      "name": "firebase_core_web",
+      "version": "3.3.0",
+      "dependencies": [
+        "firebase_core_platform_interface",
+        "flutter",
+        "flutter_web_plugins",
+        "meta",
+        "web"
+      ]
+    },
+    {
       "name": "sky_engine",
       "version": "0.0.0",
       "dependencies": []
+    },
+    {
+      "name": "material_color_utilities",
+      "version": "0.11.1",
+      "dependencies": [
+        "collection"
+      ]
+    },
+    {
+      "name": "characters",
+      "version": "1.4.0",
+      "dependencies": []
+    },
+    {
+      "name": "async",
+      "version": "2.13.0",
+      "dependencies": [
+        "collection",
+        "meta"
+      ]
+    },
+    {
+      "name": "leak_tracker_testing",
+      "version": "3.0.2",
+      "dependencies": [
+        "leak_tracker",
+        "matcher",
+        "meta"
+      ]
+    },
+    {
+      "name": "leak_tracker",
+      "version": "11.0.2",
+      "dependencies": [
+        "clock",
+        "collection",
+        "meta",
+        "path",
+        "vm_service"
+      ]
+    },
+    {
+      "name": "term_glyph",
+      "version": "1.2.2",
+      "dependencies": []
+    },
+    {
+      "name": "string_scanner",
+      "version": "1.4.1",
+      "dependencies": [
+        "source_span"
+      ]
+    },
+    {
+      "name": "source_span",
+      "version": "1.10.1",
+      "dependencies": [
+        "collection",
+        "path",
+        "term_glyph"
+      ]
+    },
+    {
+      "name": "boolean_selector",
+      "version": "2.1.2",
+      "dependencies": [
+        "source_span",
+        "string_scanner"
+      ]
     },
     {
       "name": "web",
@@ -351,26 +436,25 @@
       ]
     },
     {
-      "name": "flutter_web_plugins",
-      "version": "0.0.0",
+      "name": "google_identity_services_web",
+      "version": "0.3.3+1",
       "dependencies": [
-        "characters",
-        "collection",
-        "flutter",
-        "material_color_utilities",
         "meta",
-        "vector_math"
+        "web"
       ]
     },
     {
-      "name": "firebase_core_web",
-      "version": "3.3.0",
+      "name": "flutter_web_plugins",
+      "version": "0.0.0",
       "dependencies": [
-        "firebase_core_platform_interface",
-        "flutter",
-        "flutter_web_plugins",
-        "meta",
-        "web"
+        "flutter"
+      ]
+    },
+    {
+      "name": "plugin_platform_interface",
+      "version": "2.1.8",
+      "dependencies": [
+        "meta"
       ]
     },
     {
@@ -385,13 +469,6 @@
       ]
     },
     {
-      "name": "plugin_platform_interface",
-      "version": "2.1.8",
-      "dependencies": [
-        "meta"
-      ]
-    },
-    {
       "name": "http_parser",
       "version": "4.1.2",
       "dependencies": [
@@ -400,6 +477,11 @@
         "string_scanner",
         "typed_data"
       ]
+    },
+    {
+      "name": "vm_service",
+      "version": "15.0.2",
+      "dependencies": []
     },
     {
       "name": "typed_data",

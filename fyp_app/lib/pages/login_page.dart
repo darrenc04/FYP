@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
+import '../services/auth_service.dart';
+import 'home_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,6 +15,8 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscure = true;
+  final AuthService _authService = AuthService();
+  bool _loading = false;
 
   @override
   void dispose() {
@@ -107,12 +113,39 @@ class _LoginPageState extends State<LoginPage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
-                        onPressed: () {
-                          // TODO: hook into real auth
+                        onPressed: _loading ? null : () async {
+                          if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Please enter email and password')),
+                            );
+                            return;
+                          }
+
+                          setState(() => _loading = true);
+                          try {
+                            final email = _emailController.text.trim();
+                            final password = _passwordController.text.trim();
+                            final user = await _authService.signInWithEmail(email, password);
+                            if (user != null) {
+                              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Login failed')));
+                            }
+                          } on FirebaseAuthException catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.message ?? 'An error occurred during login')),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                          } finally {
+                            if (mounted) setState(() => _loading = false);
+                          }
                         },
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 14),
-                          child: Text('Sign In'),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: _loading
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('Sign In'),
                         ),
                       ),
                     ),
@@ -126,12 +159,44 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
-                    onPressed: () {},
+                    onPressed: _loading ? null : () async {
+                      setState(() => _loading = true);
+                      try {
+                        final user = await _authService.signInWithGoogle();
+                        if (user != null) {
+                          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+                        }
+                      } on MissingPluginException catch (_) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Google Sign-In is not available on this platform or the plugin was not registered. Try a full restart: flutter clean; flutter pub get; flutter run.')),
+                        );
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                      } finally {
+                        if (mounted) setState(() => _loading = false);
+                      }
+                    },
                     icon: Image.asset('assets/google.png', width: 36, height: 36, errorBuilder: (c,e,s) => const Icon(Icons.g_mobiledata, color: Colors.white, size: 30)),
                   ),
                   const SizedBox(width: 18),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: _loading ? null : () async {
+                      // setState(() => _loading = true);
+                      // try {
+                      //   final user = await _authService.signInWithApple();
+                      //   if (user != null) {
+                      //     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
+                      //   }
+                      // } on MissingPluginException catch (_) {
+                      //   ScaffoldMessenger.of(context).showSnackBar(
+                      //     const SnackBar(content: Text('Apple Sign-In is not available on this platform or the plugin was not registered. Try a full restart (flutter clean; flutter pub get; flutter run).')),
+                      //   );
+                      // } catch (e) {
+                      //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                      // } finally {
+                      //   if (mounted) setState(() => _loading = false);
+                      // }
+                    },
                     icon: Image.asset('assets/apple.png', width: 36, height: 36, errorBuilder: (c,e,s) => const Icon(Icons.apple, color: Colors.white, size: 30)),
                   ),
                 ],
