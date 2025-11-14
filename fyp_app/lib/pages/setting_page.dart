@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_app/services/auth_service.dart';
+import 'login_page.dart';
 import 'device_biometric_page.dart';
 import 'device_binding_page.dart';
 
@@ -53,6 +55,31 @@ class SettingPage extends StatelessWidget {
                   ),
                 );
               },
+            ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                onPressed: () async {
+                  final authService = AuthService();
+                  try {
+                    await authService.signOut();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (route) => false,
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error signing out: ${e.toString()}')),
+                    );
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: const Text('Sign Out', style: TextStyle(fontSize: 16, color: Colors.red)),
+                ),
+              ),
             ),
           ],
         ),

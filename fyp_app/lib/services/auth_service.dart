@@ -7,6 +7,35 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Register with email and password (for sign-up)
+  Future<User?> registerWithEmail(String email, String password, String phoneNumber) async {
+    try {
+      UserCredential result = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final User? user = result.user;
+      if (user != null) {
+        final String docId = user.email!.toLowerCase();
+        final docRef = _firestore.collection('Users').doc(docId);
+        
+        await docRef.set({
+          'uid': user.uid,
+          'email': user.email,
+          'phoneNumber': phoneNumber,
+          'deviceToken': '',
+          'biometric': '',
+          'lastDeviceRemoved': '',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      return result.user;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Sign in with email and password
   Future<User?> signInWithEmail(String email, String password) async {
     try {
@@ -73,6 +102,16 @@ class AuthService {
       }
 
       return result.user;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Sign out
+  Future<void> signOut() async {
+    try {
+      await _auth.signOut();
+      await GoogleSignIn().signOut();
     } catch (e) {
       rethrow;
     }

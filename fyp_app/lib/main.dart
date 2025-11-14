@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:fyp_app/pages/home_page.dart';
 import 'package:fyp_app/pages/setting_page.dart';
 import 'pages/login_page.dart';
+import 'pages/sign_up_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginPage(),
+        '/signup': (context) => const SignUpPage(),
         '/home': (context) => const HomePage(),
         '/settings': (context) => const SettingPage(),
       },

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import 'home_page.dart';
 
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -207,7 +208,10 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text("Don't have an account, ", style: TextStyle(color: Colors.white70)),
-                    TextButton(onPressed: () {}, child: const Text('Sign up')),
+                    TextButton(onPressed: () {
+                      Navigator.pushNamed(context, '/signup');
+                    }, 
+                    child: const Text('Sign up')),
                   ],
                 ),
               ),
