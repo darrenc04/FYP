@@ -8,7 +8,7 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Register with email and password (for sign-up)
-  Future<User?> registerWithEmail(String email, String password, String phoneNumber) async {
+  Future<User?> registerWithEmail(String email, String password, String phoneNumber, String fullName, String idNumber, String program) async {
     try {
       UserCredential result = await _auth.createUserWithEmailAndPassword(
         email: email,
@@ -19,11 +19,15 @@ class AuthService {
       if (user != null) {
         final String docId = user.email!.toLowerCase();
         final docRef = _firestore.collection('Users').doc(docId);
-        
+
         await docRef.set({
           'uid': user.uid,
           'email': user.email,
+          'fullName': fullName,
+          'idNumber': idNumber,
+          'program': program,
           'phoneNumber': phoneNumber,
+          'sessionsId': [],
           'deviceToken': '',
           'biometric': '',
           'lastDeviceRemoved': '',

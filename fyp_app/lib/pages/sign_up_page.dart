@@ -16,6 +16,9 @@ class _SignUpPageState extends State<SignUpPage> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _fullNameController = TextEditingController();
+  final _idController = TextEditingController();
+  final _programController = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
   final AuthService _authService = AuthService();
@@ -25,6 +28,9 @@ class _SignUpPageState extends State<SignUpPage> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _fullNameController.dispose();
+    _idController.dispose();
+    _programController.dispose();
     super.dispose();
   }
 
@@ -74,6 +80,51 @@ class _SignUpPageState extends State<SignUpPage> {
                 ),
                 child: Column(
                   children: [
+                    TextField(
+                      controller: _fullNameController,
+                      keyboardType: TextInputType.name,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Enter your full name',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        labelText: 'Full Name',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _idController,
+                      keyboardType: TextInputType.text,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Enter your Student / Staff ID',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        labelText: 'ID Number',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _programController,
+                      keyboardType: TextInputType.text,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Enter your program (e.g., CS, IT)',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        labelText: 'Program',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -138,7 +189,10 @@ class _SignUpPageState extends State<SignUpPage> {
                         onPressed: _loading
                             ? null
                             : () async {
-                                if (_emailController.text.isEmpty ||
+                                if (_fullNameController.text.isEmpty ||
+                                    _idController.text.isEmpty ||
+                                    _programController.text.isEmpty ||
+                                    _emailController.text.isEmpty ||
                                     _phoneController.text.isEmpty ||
                                     _passwordController.text.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
@@ -156,15 +210,21 @@ class _SignUpPageState extends State<SignUpPage> {
 
                                 setState(() => _loading = true);
                                 try {
+                                  final fullName = _fullNameController.text.trim();
+                                  final idNumber = _idController.text.trim();
+                                  final program = _programController.text.trim();
                                   final email = _emailController.text.trim();
                                   final password = _passwordController.text.trim();
                                   final phoneNumber = _phoneController.text.trim();
 
-                                  // Create Firebase Auth user and save to Firestore with phone number
+                                  // Create Firebase Auth user and save to Firestore with additional profile fields
                                   final user = await _authService.registerWithEmail(
                                     email,
                                     password,
                                     phoneNumber,
+                                    fullName,
+                                    idNumber,
+                                    program,
                                   );
 
                                   if (user != null) {
