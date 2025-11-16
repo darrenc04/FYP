@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'ultrasonic_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,7 +34,7 @@ class _HomePageState extends State<HomePage> {
         if (docSnap.exists && mounted) {
           final fullName = docSnap['fullName'] ?? 'User';
           final sessionIds = List<String>.from(docSnap['sessionsId'] ?? []);
-          
+
           // Fetch session details
           List<Map<String, dynamic>> sessions = [];
           for (String sessionId in sessionIds) {
@@ -42,18 +43,18 @@ class _HomePageState extends State<HomePage> {
                   .collection('Sessions')
                   .doc(sessionId)
                   .get();
-              
+
               if (sessionSnap.exists) {
                 sessions.add({
                   'id': sessionId,
-                  ...sessionSnap.data() as Map<String, dynamic>
+                  ...sessionSnap.data() as Map<String, dynamic>,
                 });
               }
             } catch (e) {
               debugPrint('Error fetching session \$sessionId: \$e');
             }
           }
-          
+
           if (mounted) {
             setState(() {
               _userName = fullName;
@@ -109,7 +110,6 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      
                     ],
                   ),
                   const Spacer(),
@@ -165,139 +165,158 @@ class _HomePageState extends State<HomePage> {
               // Session cards list
               Expanded(
                 child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
+                    ? const Center(child: CircularProgressIndicator())
                     : _sessions.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'No sessions assigned',
-                              style: TextStyle(color: Colors.white70),
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: _sessions.length,
-                            itemBuilder: (context, index) {
-                              final session = _sessions[index];
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                    ? const Center(
+                        child: Text(
+                          'No sessions assigned',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _sessions.length,
+                        itemBuilder: (context, index) {
+                          final session = _sessions[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
                                 ),
-                                padding: const EdgeInsets.all(14),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: const Color(0xFFE6B0A6),
-                                      child: Text(
-                                        (session['sessionsType'] ?? '?')
-                                            .toString()
-                                            .substring(0, 1)
-                                            .toUpperCase(),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: const Color(0xFFE6B0A6),
+                                  child: Text(
+                                    (session['sessionsType'] ?? '?')
+                                        .toString()
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${session['id']} ${session['sessionsName'] ?? 'Session'} ',
                                         style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black87,
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                      const SizedBox(height: 10),
+                                      Row(
                                         children: [
-                                          Text(
-                                            '${session['id']} ${session['sessionsName'] ?? 'Session'} ',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.black87,
+                                          const Icon(
+                                            Icons.location_on,
+                                            size: 16,
+                                            color: Colors.black54,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              session['location'] ??
+                                                  'Location TBD',
+                                              style: const TextStyle(
+                                                color: Colors.black54,
+                                              ),
                                             ),
-                                          ),
-                                          const SizedBox(height: 10),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.location_on,
-                                                  size: 16,
-                                                  color: Colors.black54),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  session['location'] ??
-                                                      'Location TBD',
-                                                  style: const TextStyle(
-                                                      color: Colors.black54),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.person,
-                                                  size: 16,
-                                                  color: Colors.black54),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  '${session['lecturerName'] ?? 'N/A'}',
-                                                  style: const TextStyle(
-                                                      color: Colors.black54),
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            backgroundColor: Colors.white,
-                                            side: const BorderSide(
-                                                color: Color(0xFF2E7DFF)),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: Colors.black54,
                                           ),
-                                          onPressed: () {},
-                                          child: const Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 6,
-                                            ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
                                             child: Text(
-                                              'Mark\nAttendance',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Color(0xFF2E7DFF),
-                                                fontWeight: FontWeight.w600,
+                                              '${session['lecturerName'] ?? 'N/A'}',
+                                              style: const TextStyle(
+                                                color: Colors.black54,
                                               ),
                                             ),
                                           ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    OutlinedButton(
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        side: const BorderSide(
+                                          color: Color(0xFF2E7DFF),
                                         ),
-                                      ],
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                MarkAttendancePage(
+                                                  sessionId: session['id'],
+                                                  sessionName:
+                                                      session['sessionsName'] ??
+                                                      'Session',
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                      child: const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 6,
+                                        ),
+                                        child: Text(
+                                          'Mark\nAttendance',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Color(0xFF2E7DFF),
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              );
-                            },
-                          ),
-              )
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ],
           ),
         ),
