@@ -90,6 +90,63 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
       final docId = user.email!.toLowerCase();
 
       if (value) {
+        // Show confirmation dialog before binding
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Bind Device'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Are you sure you want to bind this device to your account?',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Important:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  '• Only this device will be able to mark attendance',
+                  style: TextStyle(fontSize: 13),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '• One device can only be linked to one account',
+                  style: TextStyle(fontSize: 13),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '• After removal, you must wait 7 days to remove again',
+                  style: TextStyle(fontSize: 13, color: Colors.red),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Bind Device'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmed != true) return;
+
         // Check if this device is already linked to another user
         final existingDevice = await _firestore
             .collection('Users')
