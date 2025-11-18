@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fyp_app/services/auth_service.dart';
 import 'login_page.dart';
-import 'device_biometric_page.dart';
+import 'device_biometric_page_v2.dart';
 import 'device_binding_page.dart';
 
 class SettingPage extends StatelessWidget {
@@ -38,7 +38,7 @@ class SettingPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const DeviceBiometricPage(),
+                    builder: (context) => const DeviceBiometricPageV2(),
                   ),
                 );
               },

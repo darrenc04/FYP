@@ -51,6 +51,10 @@ dependencies:
   local_auth_android: ^1.0.52
   local_auth_ios: ^1.1.7
   just_audio: ^0.10.5
+  google_mlkit_face_detection: ^0.10.0
+  image_picker: ^1.0.0
+  image: ^4.0.0
+  http: ^1.1.0
   
 
  

@@ -1,0 +1,9 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+deepface>=0.0.70
+opencv-python>=4.9.0
+numpy>=1.26.0
+pillow>=10.1.0
+python-dotenv>=1.0.0
+firebase-admin>=6.3.0
+requests>=2.32.0
