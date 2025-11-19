@@ -33,10 +33,10 @@ def allowed_file(filename):
 def get_face_embedding(image_path):
     """Extract face embedding using DeepFace"""
     try:
-        # Extract embedding using DeepFace (VGGFace2 model)
+        # Extract embedding using DeepFace (Facenet512 model - more reliable)
         embedding = DeepFace.represent(
             img_path=image_path,
-            model_name='VGGFace2',
+            model_name='Facenet512',
             enforce_detection=True,
             normalization='base'
         )
@@ -156,7 +156,7 @@ def verify_face():
             # Threshold for face matching (lower is more strict)
             # Typically 0.4-0.6 for VGGFace2
             threshold = 0.4
-            is_match = distance < threshold
+            is_match = bool(distance < threshold)  # Convert to Python bool for JSON serialization
             confidence = (1 - distance) * 100  # Convert to percentage
             
             logger.info(f"Face verification for user {user_id}: distance={distance:.4f}, match={is_match}")
@@ -165,8 +165,8 @@ def verify_face():
                 'success': True,
                 'user_id': user_id,
                 'is_match': is_match,
-                'confidence': round(confidence, 2),
-                'distance': round(distance, 4),
+                'confidence': round(float(confidence), 2),
+                'distance': round(float(distance), 4),
                 'threshold': threshold,
                 'message': 'Face verified successfully' if is_match else 'Face does not match'
             }), 200
@@ -214,14 +214,14 @@ def compare_faces():
             # Calculate distance
             distance = calculate_cosine_distance(embedding1, embedding2)
             threshold = 0.4
-            is_match = distance < threshold
+            is_match = bool(distance < threshold)  # Convert to Python bool for JSON serialization
             confidence = (1 - distance) * 100
             
             return jsonify({
                 'success': True,
                 'is_match': is_match,
-                'confidence': round(confidence, 2),
-                'distance': round(distance, 4),
+                'confidence': round(float(confidence), 2),
+                'distance': round(float(distance), 4),
                 'threshold': threshold,
                 'message': 'Faces match' if is_match else 'Faces do not match'
             }), 200

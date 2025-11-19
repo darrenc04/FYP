@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fyp_app/pages/fingerprint_verification_page.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'ultrasonic_page.dart';
+import 'face_verification_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,6 +43,13 @@ class _HomePageState extends State<HomePage> with RouteAware {
   }
 
   @override
+  void didPopNext() {
+    super.didPopNext();
+    // Refresh when returning to this page
+    _refreshData();
+  }
+
+  @override
   void dispose() {
     tonePlayer.dispose();
     super.dispose();
@@ -72,18 +81,22 @@ class _HomePageState extends State<HomePage> with RouteAware {
               if (sessionSnap.exists) {
                 final sessionData = sessionSnap.data() as Map<String, dynamic>;
 
-                // For students, check attendance
+                // For students, check attendance - always check fresh from Firestore
                 if (role == 'student') {
                   final attendanceSnap = await FirebaseFirestore.instance
                       .collection('Sessions')
                       .doc(sessionId)
                       .collection('Attendance')
                       .doc(docId)
-                      .get();
+                      .get(const GetOptions(source: Source.server)); // Force server read
+
+                  // Check if attendance document exists AND has a valid 'status' field
+                  final attendanceMarked = attendanceSnap.exists && 
+                      (attendanceSnap.data()?['status'] != null);
 
                   sessions.add({
                     'id': sessionId,
-                    'attendanceMarked': attendanceSnap.exists,
+                    'attendanceMarked': attendanceMarked,
                     ...sessionData,
                   });
                 } else {
@@ -123,6 +136,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   Future<void> _refreshData() async {
     setState(() {
       _loading = true;
+      _sessions = []; // Clear cached sessions
     });
     await _fetchUserData();
   }
@@ -488,6 +502,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   }
 
   Widget _buildStudentCard(Map<String, dynamic> session) {
+    final sessionId = session['id'] ?? 'Unknown ID';
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
     final sessionType = session['sessionsType'] ?? 'Class';
     final location = session['location'] ?? 'No Location';
@@ -537,7 +552,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    sessionName,
+                    '$sessionId $sessionName',
                     style: const TextStyle(
                       color: Color(0xFF2D3436),
                       fontSize: 14,
@@ -597,15 +612,35 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     onTap: attendanceMarked
                         ? null
                         : () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MarkAttendancePage(
-                                  sessionId: session['id'],
-                                  sessionName: sessionName,
+                            final isTutorialOrPractical =
+                                sessionType.toLowerCase().contains('tutorial') ||
+                                sessionType.toLowerCase().contains('practical');
+
+                            if (isTutorialOrPractical) {
+                              // Use face verification for Tutorial/Practical
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FingerprintVerificationPage(
+                                    sessionId: session['id'],
+                                    courseCode: session['courseCode'] ?? '',
+                                    courseName: sessionName,
+                                    sessionType: sessionType,
+                                  ),
                                 ),
-                              ),
-                            );
+                              );
+                            } else {
+                              // Use ultrasonic for Lecture Class
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MarkAttendancePage(
+                                    sessionId: session['id'],
+                                    sessionName: sessionName,
+                                  ),
+                                ),
+                              );
+                            }
                             if (mounted) {
                               await _refreshData();
                             }
@@ -724,7 +759,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    sessionName,
+                    '$sessionId $sessionName',
                     style: const TextStyle(
                       color: Color(0xFF2D3436),
                       fontSize: 14,

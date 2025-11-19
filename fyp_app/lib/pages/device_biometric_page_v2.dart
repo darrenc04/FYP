@@ -20,8 +20,8 @@ class _DeviceBiometricPageV2State extends State<DeviceBiometricPageV2> {
   final ImagePicker _imagePicker = ImagePicker();
 
   // API Configuration
-  static const String DEEPFACE_API_URL = 'http://10.0.2.2:5000'; // Android emulator localhost
-  // For physical device, use: 'http://<your-machine-ip>:5000'
+  static const String DEEPFACE_API_URL = 'http://192.168.100.177:5000'; // Physical device IP
+  // For Android emulator, use: 'http://10.0.2.2:5000'
 
   bool _isEnabled = false;
   bool _isFaceVerified = false;
@@ -31,7 +31,7 @@ class _DeviceBiometricPageV2State extends State<DeviceBiometricPageV2> {
   bool _hasBiometricCapability = false;
   bool _isVerifyingFace = false;
   bool _isVerifyingFingerprint = false;
-  bool _isMockMode = true; // Set to false for production; true for testing without biometrics
+  bool _isMockMode = false; // Set to false for production; true for testing without biometrics
 
   @override
   void initState() {
