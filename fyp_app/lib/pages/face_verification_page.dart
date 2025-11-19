@@ -9,7 +9,7 @@ class FaceVerificationPage extends StatefulWidget {
   final String sessionId;
   final String courseCode;
   final String courseName;
-  final String sessionType; // 'Lecture Class' or 'Tutorial'
+  final String sessionType; // 'Lecture Class' or 'Tutorial Class'
 
   const FaceVerificationPage({
     Key? key,
@@ -56,7 +56,9 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       setState(() => _faceRegistered = isFaceVerified);
 
       if (!isFaceVerified) {
-        _showErrorSnackBar('Face not registered. Please register your face first.');
+        _showErrorSnackBar(
+          'Face not registered. Please register your face first.',
+        );
       }
     } catch (e) {
       print('Error checking face registration: $e');
@@ -82,9 +84,9 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
       // Verify DeepFace API is available
       try {
-        final healthResponse = await http.get(
-          Uri.parse('$DEEPFACE_API_URL/health'),
-        ).timeout(const Duration(seconds: 5));
+        final healthResponse = await http
+            .get(Uri.parse('$DEEPFACE_API_URL/health'))
+            .timeout(const Duration(seconds: 5));
 
         if (healthResponse.statusCode != 200) {
           _showErrorSnackBar('DeepFace server is not responding.');
@@ -129,12 +131,11 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       );
 
       request.fields['user_id'] = userId;
-      request.files.add(
-        await http.MultipartFile.fromPath('image', image.path),
-      );
+      request.files.add(await http.MultipartFile.fromPath('image', image.path));
 
-      final response =
-          await request.send().timeout(const Duration(seconds: 30));
+      final response = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
       final responseBody = await response.stream.bytesToString();
 
       print('Verify response status: ${response.statusCode}');
@@ -154,7 +155,8 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
             await _markAttendance(userId);
           } else {
             _showErrorSnackBar(
-                'Face does not match. Confidence: ${confidence.toStringAsFixed(2)}%');
+              'Face does not match. Confidence: ${confidence.toStringAsFixed(2)}%',
+            );
             setState(() => _isVerifying = false);
           }
         } catch (e) {
@@ -206,11 +208,11 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
           .collection('Attendance')
           .doc(userId)
           .set({
-        'status': 'present',
-        'markedAt': FieldValue.serverTimestamp(),
-        'verificationMethod': 'face',
-        'faceConfidence': _verificationConfidence,
-      }, SetOptions(merge: true));
+            'status': 'present',
+            'markedAt': FieldValue.serverTimestamp(),
+            'verificationMethod': 'face',
+            'faceConfidence': _verificationConfidence,
+          }, SetOptions(merge: true));
 
       setState(() {
         _attendanceMarked = true;
@@ -218,7 +220,8 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       });
 
       _showSuccessSnackBar(
-          'Attendance marked successfully! Confidence: ${_verificationConfidence.toStringAsFixed(2)}%');
+        'Attendance marked successfully! Confidence: ${_verificationConfidence.toStringAsFixed(2)}%',
+      );
 
       // Wait 2 seconds then navigate back
       await Future.delayed(const Duration(seconds: 2));
@@ -262,6 +265,15 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate the available height of the screen
+    final double availableHeight =
+        MediaQuery.of(context).size.height -
+        kToolbarHeight -
+        MediaQuery.of(context).padding.top;
+
+    // Subtract the total vertical padding (16.0 top + 16.0 bottom)
+    final double minBodyHeight = availableHeight - 32.0;
+
     return WillPopScope(
       onWillPop: () async => !_isVerifying,
       child: Scaffold(
@@ -276,7 +288,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
                   onPressed: () => Navigator.pop(context),
                 ),
           title: const Text(
-            'Face Verification - Mark Attendance',
+            'Mark Attendance',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -286,315 +298,305 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Session Info
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.courseName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
+          child: ConstrainedBox(
+            // 1. Force the inner box to take up the minimum height of the available viewport
+            constraints: BoxConstraints(minHeight: minBodyHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                // 2. Center all children vertically within the full-height space
+                mainAxisAlignment: MainAxisAlignment.center,
+                // Ensure children span the width
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Session Info
+                  // Container(
+                  //   padding: const EdgeInsets.all(16),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.white,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //     boxShadow: [
+                  //       BoxShadow(
+                  //         color: Colors.black.withOpacity(0.1),
+                  //         blurRadius: 8,
+                  //         offset: const Offset(0, 2),
+                  //       ),
+                  //     ],
+                  //   ),
+                  //   child: Column(
+                  //     crossAxisAlignment: CrossAxisAlignment.start,
+                  //     children: [
+                  //       Text(
+                  //         widget.courseName,
+                  //         style: const TextStyle(
+                  //           fontSize: 18,
+                  //           fontWeight: FontWeight.bold,
+                  //           color: Colors.black87,
+                  //         ),
+                  //       ),
+                  //       const SizedBox(height: 8),
+                  //       Row(
+                  //         children: [
+                  //           const Text(
+                  //             'Course Code: ',
+                  //             style: TextStyle(
+                  //               fontSize: 14,
+                  //               color: Colors.grey,
+                  //             ),
+                  //           ),
+                  //           Text(
+                  //             widget.courseCode,
+                  //             style: const TextStyle(
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w600,
+                  //               color: Colors.black87,
+                  //             ),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //       const SizedBox(height: 6),
+                  //       Row(
+                  //         children: [
+                  //           const Text(
+                  //             'Session Type: ',
+                  //             style: TextStyle(
+                  //               fontSize: 14,
+                  //               color: Colors.grey,
+                  //             ),
+                  //           ),
+                  //           Text(
+                  //             widget.sessionType,
+                  //             style: TextStyle(
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w600,
+                  //               color: widget.sessionType == 'Tutorial'
+                  //                   ? Colors.orange
+                  //                   : Colors.blue,
+                  //             ),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
+                  const SizedBox(height: 24),
+
+                  // Face Status Info
+                  // if (!_faceRegistered)
+                  //   Container(
+                  //     padding: const EdgeInsets.all(16),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.red.shade50,
+                  //       border: Border.all(color: Colors.red, width: 2),
+                  //       borderRadius: BorderRadius.circular(12),
+                  //     ),
+                  //     child: Row(
+                  //       children: [
+                  //         Icon(
+                  //           Icons.error_outline,
+                  //           color: Colors.red.shade700,
+                  //           size: 24,
+                  //         ),
+                  //         const SizedBox(width: 12),
+                  //         Expanded(
+                  //           child: Column(
+                  //             crossAxisAlignment: CrossAxisAlignment.start,
+                  //             children: [
+                  //               const Text(
+                  //                 'Face Not Registered',
+                  //                 style: TextStyle(
+                  //                   fontSize: 16,
+                  //                   fontWeight: FontWeight.bold,
+                  //                   color: Colors.red,
+                  //                 ),
+                  //               ),
+                  //               const SizedBox(height: 4),
+                  //               Text(
+                  //                 'Please register your face first in Device Settings.',
+                  //                 style: TextStyle(
+                  //                   fontSize: 12,
+                  //                   color: Colors.red.shade700,
+                  //                 ),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   )
+                  // else
+                  //   Container(
+                  //     padding: const EdgeInsets.all(16),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.green.shade50,
+                  //       border: Border.all(color: Colors.green, width: 2),
+                  //       borderRadius: BorderRadius.circular(12),
+                  //     ),
+                  //     child: Row(
+                  //       children: [
+                  //         Icon(
+                  //           Icons.check_circle,
+                  //           color: Colors.green.shade700,
+                  //           size: 24,
+                  //         ),
+                  //         const SizedBox(width: 12),
+                  //         Expanded(
+                  //           child: Column(
+                  //             crossAxisAlignment: CrossAxisAlignment.start,
+                  //             children: [
+                  //               const Text(
+                  //                 'Face Registered',
+                  //                 style: TextStyle(
+                  //                   fontSize: 16,
+                  //                   fontWeight: FontWeight.bold,
+                  //                   color: Colors.green,
+                  //                 ),
+                  //               ),
+                  //               const SizedBox(height: 4),
+                  //               Text(
+                  //                 'Ready for face verification',
+                  //                 style: TextStyle(
+                  //                   fontSize: 12,
+                  //                   color: Colors.green.shade700,
+                  //                 ),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+
+                  // const SizedBox(height: 24),
+
+                  // Main Verification Button
+                  Container(
+                    padding: const EdgeInsets.all(20),
+
+                    child: Column(
                       children: [
-                        const Text(
-                          'Course Code: ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        Text(
-                          widget.courseCode,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Text(
-                          'Session Type: ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        Text(
-                          widget.sessionType,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: widget.sessionType == 'Tutorial'
-                                ? Colors.orange
-                                : Colors.blue,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Face Status Info
-              if (!_faceRegistered)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: Colors.red.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Face Not Registered',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
-                              ),
+                        if (!_attendanceMarked) ...[
+                          const Text(
+                            'Verify Your Face',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Please register your face first in Device Settings.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.red.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    border: Border.all(color: Colors.green, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.green.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Face Registered',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Ready for face verification',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                          ),
+                          const SizedBox(height: 16),
 
-              const SizedBox(height: 24),
+                          
+                          GestureDetector(
+                            onTap: _faceRegistered && !_isVerifying
+                                ? _verifyFaceAndMarkAttendance
+                                : null,
+                            child: Column(       
+                              children: [
+                                _isVerifying
+                                    ? const SizedBox(
+                                        width:
+                                            160, 
+                                        height: 160,
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 80,
+                                            height: 80,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 4,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.orange,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Image.asset(
+                                        'assets/faceid.png',
+                                        fit: BoxFit.contain,
+                                        height:
+                                            160,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const FlutterLogo(size: 160),
+                                      ),
 
-              // Main Verification Button
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _attendanceMarked ? Colors.green : Colors.orange,
-                    width: 2,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    if (!_attendanceMarked) ...[
-                      Icon(
-                        Icons.face_retouching_natural,
-                        size: 64,
-                        color: Colors.orange.shade700,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Verify Your Face',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'For ${widget.sessionType} Class',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _faceRegistered && !_isVerifying
-                              ? _verifyFaceAndMarkAttendance
-                              : null,
-                          icon: _isVerifying
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
+                                const SizedBox(height: 8),
+
+                                Text(
+                                  _isVerifying
+                                      ? 'Verifying Face...'
+                                      : _faceRegistered
+                                      ? 'Tap to Scan Face'
+                                      : 'Face Not Registered',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: _isVerifying
+                                        ? Colors.orange
+                                        : Colors.grey.shade400,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                )
-                              : const Icon(Icons.camera_alt),
-                          label: Text(
-                            _isVerifying ? 'Verifying...' : 'Take Photo & Verify',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                                ),
+                              ],
                             ),
-                            disabledBackgroundColor: Colors.grey.shade400,
                           ),
-                        ),
-                      ),
-                    ] else ...[
-                      Icon(
-                        Icons.check_circle,
-                        size: 64,
-                        color: Colors.green.shade700,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Attendance Marked!',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Confidence: ${_verificationConfidence.toStringAsFixed(2)}%',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Instructions
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.blue.shade700,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Instructions',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    _buildBulletPoint(
-                      'Ensure good lighting and clear face visibility',
-                    ),
-                    _buildBulletPoint(
-                      'Face should be directly facing the camera',
-                    ),
-                    _buildBulletPoint(
-                      'Remove sunglasses or face obscurities',
-                    ),
-                    _buildBulletPoint(
-                      'Your face will be compared against your registered image',
-                    ),
-                    _buildBulletPoint(
-                      'Verification requires at least 90% confidence match',
-                    ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Instructions
+                  // Container(
+                  //   padding: const EdgeInsets.all(16),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.white,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: Column(
+                  //     crossAxisAlignment: CrossAxisAlignment.start,
+                  //     children: [
+                  //       Row(
+                  //         children: [
+                  //           Icon(
+                  //             Icons.info_outline,
+                  //             color: Colors.blue.shade700,
+                  //             size: 20,
+                  //           ),
+                  //           const SizedBox(width: 8),
+                  //           Text(
+                  //             'Instructions',
+                  //             style: TextStyle(
+                  //               fontSize: 16,
+                  //               fontWeight: FontWeight.bold,
+                  //               color: Colors.blue.shade700,
+                  //             ),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //       const SizedBox(height: 12),
+                  //       _buildBulletPoint(
+                  //         'Ensure good lighting and clear face visibility',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Face should be directly facing the camera',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Remove sunglasses or face obscurities',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Your face will be compared against your registered image',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Verification requires at least 90% confidence match',
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -607,7 +609,10 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(fontSize: 16, color: Colors.black87)),
+          const Text(
+            '• ',
+            style: TextStyle(fontSize: 16, color: Colors.black87),
+          ),
           Expanded(
             child: Text(
               text,

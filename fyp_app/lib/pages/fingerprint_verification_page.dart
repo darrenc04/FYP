@@ -47,12 +47,15 @@ class _FingerprintVerificationPageState
 
       final userId = user.email!.toLowerCase();
       final userDoc = await _firestore.collection('Users').doc(userId).get();
-      final isFingerprintVerified = userDoc.data()?['fingerprintVerified'] ?? false;
+      final isFingerprintVerified =
+          userDoc.data()?['fingerprintVerified'] ?? false;
 
       setState(() => _fingerprintRegistered = isFingerprintVerified);
 
       if (!isFingerprintVerified) {
-        _showErrorSnackBar('Fingerprint not registered. Please register first in Device Settings.');
+        _showErrorSnackBar(
+          'Fingerprint not registered. Please register first in Device Settings.',
+        );
       }
     } catch (e) {
       print('Error checking fingerprint registration: $e');
@@ -145,10 +148,10 @@ class _FingerprintVerificationPageState
           .collection('Attendance')
           .doc(userId)
           .set({
-        'status': 'present',
-        'markedAt': FieldValue.serverTimestamp(),
-        'verificationMethod': 'fingerprint',
-      }, SetOptions(merge: true));
+            'status': 'present',
+            'markedAt': FieldValue.serverTimestamp(),
+            'verificationMethod': 'fingerprint',
+          }, SetOptions(merge: true));
 
       setState(() {
         _attendanceMarked = true;
@@ -199,6 +202,16 @@ class _FingerprintVerificationPageState
 
   @override
   Widget build(BuildContext context) {
+    // Calculate the available height of the screen (total height minus AppBar height and system padding)
+    // kToolbarHeight is a constant for the AppBar's height.
+    final double availableHeight =
+        MediaQuery.of(context).size.height -
+        kToolbarHeight -
+        MediaQuery.of(context).padding.top;
+
+    // The 32.0 accounts for the 16.0 padding applied to the SingleChildScrollView on top and bottom.
+    final double minBodyHeight = availableHeight - 32.0;
+
     return WillPopScope(
       onWillPop: () async => !_isVerifying,
       child: Scaffold(
@@ -213,7 +226,7 @@ class _FingerprintVerificationPageState
                   onPressed: () => Navigator.pop(context),
                 ),
           title: const Text(
-            'Fingerprint Verification - Mark Attendance',
+            'Mark Attendance',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -223,313 +236,327 @@ class _FingerprintVerificationPageState
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Session Info
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.courseName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
+          child: ConstrainedBox(
+            // 1. Force the inner box (Column) to take up the minimum height of the available viewport
+            constraints: BoxConstraints(minHeight: minBodyHeight),
+            child: IntrinsicHeight(
+              child: Column(
+                // 2. Center all children vertically within the full-height space
+                mainAxisAlignment: MainAxisAlignment.center,
+                // Ensure children span the width
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Session Info
+                  // Container(
+                  //   padding: const EdgeInsets.all(16),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.white,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //     boxShadow: [
+                  //       BoxShadow(
+                  //         color: Colors.black.withOpacity(0.1),
+                  //         blurRadius: 8,
+                  //         offset: const Offset(0, 2),
+                  //       ),
+                  //     ],
+                  //   ),
+                  //   child: Column(
+                  //     crossAxisAlignment: CrossAxisAlignment.start,
+                  //     children: [
+                  //       Text(
+                  //         widget.courseName,
+                  //         style: const TextStyle(
+                  //           fontSize: 18,
+                  //           fontWeight: FontWeight.bold,
+                  //           color: Colors.black87,
+                  //         ),
+                  //       ),
+                  //       const SizedBox(height: 8),
+                  //       Row(
+                  //         children: [
+                  //           const Text(
+                  //             'Course Code: ',
+                  //             style: TextStyle(
+                  //               fontSize: 14,
+                  //               color: Colors.grey,
+                  //             ),
+                  //           ),
+                  //           Text(
+                  //             widget.courseCode,
+                  //             style: const TextStyle(
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w600,
+                  //               color: Colors.black87,
+                  //             ),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //       const SizedBox(height: 6),
+                  //       Row(
+                  //         children: [
+                  //           const Text(
+                  //             'Session Type: ',
+                  //             style: TextStyle(
+                  //               fontSize: 14,
+                  //               color: Colors.grey,
+                  //             ),
+                  //           ),
+                  //           Text(
+                  //             widget.sessionType,
+                  //             style: TextStyle(
+                  //               fontSize: 14,
+                  //               fontWeight: FontWeight.w600,
+                  //               color: Colors.orange,
+                  //             ),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
+
+                  // const SizedBox(height: 24),
+
+                  // Fingerprint Status Info
+                  // if (!_fingerprintRegistered)
+                  //   Container(
+                  //     padding: const EdgeInsets.all(16),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.red.shade50,
+                  //       border: Border.all(color: Colors.red, width: 2),
+                  //       borderRadius: BorderRadius.circular(12),
+                  //     ),
+                  //     child: Row(
+                  //       children: [
+                  //         Icon(
+                  //           Icons.error_outline,
+                  //           color: Colors.red.shade700,
+                  //           size: 24,
+                  //         ),
+                  //         const SizedBox(width: 12),
+                  //         Expanded(
+                  //           child: Column(
+                  //             crossAxisAlignment: CrossAxisAlignment.start,
+                  //             children: [
+                  //               const Text(
+                  //                 'Fingerprint Not Registered',
+                  //                 style: TextStyle(
+                  //                   fontSize: 16,
+                  //                   fontWeight: FontWeight.bold,
+                  //                   color: Colors.red,
+                  //                 ),
+                  //               ),
+                  //               const SizedBox(height: 4),
+                  //               Text(
+                  //                 'Please register your fingerprint first in Device Settings.',
+                  //                 style: TextStyle(
+                  //                   fontSize: 12,
+                  //                   color: Colors.red.shade700,
+                  //                 ),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   )
+                  // else
+                  //   Container(
+                  //     padding: const EdgeInsets.all(16),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.green.shade50,
+                  //       border: Border.all(color: Colors.green, width: 2),
+                  //       borderRadius: BorderRadius.circular(12),
+                  //     ),
+                  //     child: Row(
+                  //       children: [
+                  //         Icon(
+                  //           Icons.check_circle,
+                  //           color: Colors.green.shade700,
+                  //           size: 24,
+                  //         ),
+                  //         const SizedBox(width: 12),
+                  //         Expanded(
+                  //           child: Column(
+                  //             crossAxisAlignment: CrossAxisAlignment.start,
+                  //             children: [
+                  //               const Text(
+                  //                 'Fingerprint Registered',
+                  //                 style: TextStyle(
+                  //                   fontSize: 16,
+                  //                   fontWeight: FontWeight.bold,
+                  //                   color: Colors.green,
+                  //                 ),
+                  //               ),
+                  //               const SizedBox(height: 4),
+                  //               Text(
+                  //                 'Ready for fingerprint verification',
+                  //                 style: TextStyle(
+                  //                   fontSize: 12,
+                  //                   color: Colors.green.shade700,
+                  //                 ),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         ),
+                  //       ],
+                  //     ),
+                  //   ),
+
+                  // Main Verification Button
+                  Container(
+                    padding: const EdgeInsets.all(20),
+
+                    child: Column(
                       children: [
-                        const Text(
-                          'Course Code: ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
+                        if (!_attendanceMarked) ...[
+                          const Text(
+                            'Verify Your Fingerprint',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        Text(
-                          widget.courseCode,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                          const SizedBox(height: 16),
+
+                          GestureDetector(
+                            onTap: _fingerprintRegistered && !_isVerifying
+                                ? _verifyFingerprintAndMarkAttendance
+                                : null, // Disable tap if not registered or already verifying
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              padding: const EdgeInsets.all(24),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _fingerprintRegistered && !_isVerifying
+                                    ? Colors
+                                          .blueGrey
+                                          .shade700 // Ready state
+                                    : Colors.grey.shade700, // Disabled state
+                                border: Border.all(
+                                  color: _isVerifying
+                                      ? Colors.orange
+                                      : Colors.white, // Highlight if verifying
+                                  width: _isVerifying ? 4 : 2,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.fingerprint,
+                                size: 64,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
+
+                        //   SizedBox(
+                        //     width: double.infinity,
+                        //     child: ElevatedButton.icon(
+                        //       onPressed: _fingerprintRegistered && !_isVerifying
+                        //           ? _verifyFingerprintAndMarkAttendance
+                        //           : null,
+                        //       icon: _isVerifying
+                        //           ? const SizedBox(
+                        //               width: 20,
+                        //               height: 20,
+                        //               child: CircularProgressIndicator(
+                        //                 strokeWidth: 2,
+                        //                 valueColor:
+                        //                     AlwaysStoppedAnimation<Color>(
+                        //                       Colors.grey,
+                        //                     ),
+                        //               ),
+                        //             )
+                        //           : const Icon(Icons.fingerprint),
+                        //       label: Text(
+                        //         _isVerifying
+                        //             ? 'Verifying...'
+                        //             : 'Scan Fingerprint',
+                        //         style: TextStyle(color: Colors.white),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ] else ...[
+                        //   Icon(
+                        //     Icons.check_circle,
+                        //     size: 64,
+                        //     color: Colors.green.shade700,
+                        //   ),
+                        //   const SizedBox(height: 16),
+                        //   const Text(
+                        //     'Attendance Marked!',
+                        //     style: TextStyle(
+                        //       fontSize: 20,
+                        //       fontWeight: FontWeight.bold,
+                        //       color: Colors.green,
+                        //     ),
+                        //   ),
+                        //   const SizedBox(height: 8),
+                        //   Text(
+                        //     'via Fingerprint Verification',
+                        //     style: TextStyle(
+                        //       fontSize: 14,
+                        //       color: Colors.grey.shade600,
+                        //     ),
+                        //   ),
+                        // ],
+                      ],
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Text(
-                          'Session Type: ',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        Text(
-                          widget.sessionType,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Instructions
+                  // Container(
+                  //   padding: const EdgeInsets.all(16),
+                  //   decoration: BoxDecoration(
+                  //     color: Colors.white,
+                  //     borderRadius: BorderRadius.circular(12),
+                  //   ),
+                  //   child: Column(
+                  //     crossAxisAlignment: CrossAxisAlignment.start,
+                  //     children: [
+                  //       Row(
+                  //         children: [
+                  //           Icon(
+                  //             Icons.info_outline,
+                  //             color: Colors.blue.shade700,
+                  //             size: 20,
+                  //           ),
+                  //           const SizedBox(width: 8),
+                  //           Text(
+                  //             'Instructions',
+                  //             style: TextStyle(
+                  //               fontSize: 16,
+                  //               fontWeight: FontWeight.bold,
+                  //               color: Colors.blue.shade700,
+                  //             ),
+                  //           ),
+                  //         ],
+                  //       ),
+                  //       const SizedBox(height: 12),
+                  //       _buildBulletPoint(
+                  //         'Ensure your device is unlocked',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Place your registered finger on the sensor',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Hold steady until verification completes',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'Your attendance will be marked automatically upon successful verification',
+                  //       ),
+                  //       _buildBulletPoint(
+                  //         'If verification fails, you can try again',
+                  //       ),
+                  //     ],
+                  //   ),
+                  // ),
+                ],
               ),
-
-              const SizedBox(height: 24),
-
-              // Fingerprint Status Info
-              if (!_fingerprintRegistered)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: Colors.red.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Fingerprint Not Registered',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Please register your fingerprint first in Device Settings.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.red.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    border: Border.all(color: Colors.green, width: 2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.green.shade700,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Fingerprint Registered',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Ready for fingerprint verification',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green.shade700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 24),
-
-              // Main Verification Button
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _attendanceMarked ? Colors.green : Colors.orange,
-                    width: 2,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    if (!_attendanceMarked) ...[
-                      Icon(
-                        Icons.fingerprint,
-                        size: 64,
-                        color: Colors.orange.shade700,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Verify Your Fingerprint',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'For ${widget.sessionType}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _fingerprintRegistered && !_isVerifying
-                              ? _verifyFingerprintAndMarkAttendance
-                              : null,
-                          icon: _isVerifying
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white),
-                                  ),
-                                )
-                              : const Icon(Icons.fingerprint),
-                          label: Text(
-                            _isVerifying ? 'Verifying...' : 'Scan Fingerprint',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            disabledBackgroundColor: Colors.grey.shade400,
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      Icon(
-                        Icons.check_circle,
-                        size: 64,
-                        color: Colors.green.shade700,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Attendance Marked!',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'via Fingerprint Verification',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Instructions
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.blue.shade700,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Instructions',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _buildBulletPoint(
-                      'Ensure your device is unlocked',
-                    ),
-                    _buildBulletPoint(
-                      'Place your registered finger on the sensor',
-                    ),
-                    _buildBulletPoint(
-                      'Hold steady until verification completes',
-                    ),
-                    _buildBulletPoint(
-                      'Your attendance will be marked automatically upon successful verification',
-                    ),
-                    _buildBulletPoint(
-                      'If verification fails, you can try again',
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -542,7 +569,10 @@ class _FingerprintVerificationPageState
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('• ', style: TextStyle(fontSize: 16, color: Colors.black87)),
+          const Text(
+            '• ',
+            style: TextStyle(fontSize: 16, color: Colors.black87),
+          ),
           Expanded(
             child: Text(
               text,
