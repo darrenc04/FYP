@@ -51,13 +51,13 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
           _isEnabled = deviceToken.isNotEmpty;
           _lastRemovedDate = lastRemoved?.toDate();
 
-          // Check if one week has passed since last removal
-          if (_lastRemovedDate != null) {
-            final daysSinceRemoval = DateTime.now()
-                .difference(_lastRemovedDate!)
-                .inDays;
-            _canRemove = daysSinceRemoval >= 7;
-          }
+          // // Check if one week has passed since last removal
+          // if (_lastRemovedDate != null) {
+          //   final daysSinceRemoval = DateTime.now()
+          //       .difference(_lastRemovedDate!)
+          //   _canRemove    .inDays;
+          //    = daysSinceRemoval >= 7;
+          // }
         });
       }
     } catch (e) {
@@ -235,7 +235,7 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
         _isEnabled = false;
         _linkedDeviceId = '';
         _lastRemovedDate = DateTime.now();
-        _canRemove = false;
+        _canRemove = true;
       });
 
       _showSuccessSnackBar('Device removed successfully');

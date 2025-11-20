@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:local_auth/local_auth.dart';
+import 'device_verification_page.dart';
 
 class FingerprintVerificationPage extends StatefulWidget {
   final String sessionId;
@@ -104,8 +105,24 @@ class _FingerprintVerificationPageState
         );
 
         if (isAuthenticated) {
-          // Fingerprint verified - mark attendance
-          await _markAttendance(user.email!.toLowerCase());
+          final bool? deviceVerified = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DeviceVerificationPage(
+                sessionId: widget.sessionId,
+                sessionName: widget.courseName,
+                returnResultOnVerified: true,
+              ),
+            ),
+          );
+
+          if (deviceVerified == true) {
+            // Fingerprint and device verified - mark attendance
+            await _markAttendance(user.email!.toLowerCase());
+          } else {
+            _showErrorSnackBar('Device verification cancelled or failed.');
+            setState(() => _isVerifying = false);
+          }
         } else {
           _showErrorSnackBar('Fingerprint verification failed');
           setState(() => _isVerifying = false);

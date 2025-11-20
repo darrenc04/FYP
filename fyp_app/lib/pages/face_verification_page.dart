@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'device_verification_page.dart';
 
 class FaceVerificationPage extends StatefulWidget {
   final String sessionId;
@@ -107,6 +108,25 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
 
       if (image == null) {
         _showErrorSnackBar('No image captured');
+        setState(() => _isVerifying = false);
+        return;
+      }
+
+      // Route user through device verification before processing the image
+      final bool? deviceVerified = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DeviceVerificationPage(
+            sessionId: widget.sessionId,
+            sessionName: widget.courseName,
+            detectedFrequency: null,
+            returnResultOnVerified: true,
+          ),
+        ),
+      );
+
+      if (deviceVerified != true) {
+        _showErrorSnackBar('Device verification cancelled or failed.');
         setState(() => _isVerifying = false);
         return;
       }

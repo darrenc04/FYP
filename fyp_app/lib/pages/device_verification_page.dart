@@ -6,13 +6,15 @@ import 'location_verification_page.dart';
 class DeviceVerificationPage extends StatefulWidget {
   final String sessionId;
   final String sessionName;
-  final double detectedFrequency;
+  final double? detectedFrequency;
+  final bool returnResultOnVerified;
 
   const DeviceVerificationPage({
     super.key,
     required this.sessionId,
     required this.sessionName,
-    required this.detectedFrequency,
+    this.detectedFrequency,
+    this.returnResultOnVerified = false,
   });
 
   @override
@@ -93,16 +95,22 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
       await Future.delayed(const Duration(seconds: 1));
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => LocationVerificationPage(
-              sessionId: widget.sessionId,
-              sessionName: widget.sessionName,
-              detectedFrequency: widget.detectedFrequency,
+        if (widget.returnResultOnVerified) {
+          Navigator.pop(context, true);
+        } else if (widget.detectedFrequency != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LocationVerificationPage(
+                sessionId: widget.sessionId,
+                sessionName: widget.sessionName,
+                detectedFrequency: widget.detectedFrequency!,
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       debugPrint('Device verification error: $e');
@@ -122,7 +130,7 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.pop(context, false),
         ),
         title: const Text(
           'Device Verification',
@@ -208,7 +216,7 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(context, false),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF49555B),
