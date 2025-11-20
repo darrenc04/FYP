@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'ultrasonic_page.dart';
 import 'face_verification_page.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -81,27 +82,42 @@ class _HomePageState extends State<HomePage> with RouteAware {
               if (sessionSnap.exists) {
                 final sessionData = sessionSnap.data() as Map<String, dynamic>;
 
-                // For students, check attendance - always check fresh from Firestore
-                if (role == 'student') {
-                  final attendanceSnap = await FirebaseFirestore.instance
-                      .collection('Sessions')
-                      .doc(sessionId)
-                      .collection('Attendance')
-                      .doc(docId)
-                      .get(const GetOptions(source: Source.server)); // Force server read
+                // Check if session is scheduled for today
+                final startTime = sessionData['start_time'] as Timestamp?;
+                if (startTime != null) {
+                  final sessionDate = startTime.toDate();
+                  final now = DateTime.now();
+                  
+                  // Compare only date components (year, month, day)
+                  final isToday = sessionDate.year == now.year &&
+                      sessionDate.month == now.month &&
+                      sessionDate.day == now.day;
 
-                  // Check if attendance document exists AND has a valid 'status' field
-                  final attendanceMarked = attendanceSnap.exists && 
-                      (attendanceSnap.data()?['status'] != null);
+                  // Only add session if it's scheduled for today
+                  if (isToday) {
+                    // For students, check attendance - always check fresh from Firestore
+                    if (role == 'student') {
+                      final attendanceSnap = await FirebaseFirestore.instance
+                          .collection('Sessions')
+                          .doc(sessionId)
+                          .collection('Attendance')
+                          .doc(docId)
+                          .get(const GetOptions(source: Source.server)); // Force server read
 
-                  sessions.add({
-                    'id': sessionId,
-                    'attendanceMarked': attendanceMarked,
-                    ...sessionData,
-                  });
-                } else {
-                  // For teachers, include session data
-                  sessions.add({'id': sessionId, ...sessionData});
+                      // Check if attendance document exists AND has a valid 'status' field
+                      final attendanceMarked = attendanceSnap.exists && 
+                          (attendanceSnap.data()?['status'] != null);
+
+                      sessions.add({
+                        'id': sessionId,
+                        'attendanceMarked': attendanceMarked,
+                        ...sessionData,
+                      });
+                    } else {
+                      // For teachers, include session data
+                      sessions.add({'id': sessionId, ...sessionData});
+                    }
+                  }
                 }
               }
             } catch (e) {
@@ -509,6 +525,22 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final lecturerName = session['lecturerName'] ?? 'Unknown';
     final attendanceMarked = session['attendanceMarked'] ?? false;
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
+    
+    // Extract and format time
+    final startTime = session['start_time'] as Timestamp?;
+    final endTime = session['end_time'] as Timestamp?;
+    String startTimeStr = '';
+    String endTimeStr = '';
+    
+    if (startTime != null) {
+      final startDateTime = startTime.toDate();
+      startTimeStr = DateFormat('hh:mm a').format(startDateTime).toUpperCase();
+    }
+    
+    if (endTime != null) {
+      final endDateTime = endTime.toDate();
+      endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -531,6 +563,35 @@ class _HomePageState extends State<HomePage> with RouteAware {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Time display on the left
+                if (startTimeStr.isNotEmpty && endTimeStr.isNotEmpty)
+                  Container(
+                    width: 70,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          startTimeStr,
+                          style: const TextStyle(
+                            color: Color(0xFF2D3436),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          endTimeStr,
+                          style: const TextStyle(
+                            color: Color(0xFF2D3436),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (startTimeStr.isNotEmpty && endTimeStr.isNotEmpty)
+                  const SizedBox(width: 12),
+                // Session type icon
                 Container(
                   width: 40,
                   height: 40,
@@ -716,6 +777,22 @@ class _HomePageState extends State<HomePage> with RouteAware {
         targetFrequency != null &&
         targetFrequency >= 6000 &&
         targetFrequency <= 18000;
+    
+    // Extract and format time
+    final startTime = session['start_time'] as Timestamp?;
+    final endTime = session['end_time'] as Timestamp?;
+    String startTimeStr = '';
+    String endTimeStr = '';
+    
+    if (startTime != null) {
+      final startDateTime = startTime.toDate();
+      startTimeStr = DateFormat('hh:mm a').format(startDateTime).toUpperCase();
+    }
+    
+    if (endTime != null) {
+      final endDateTime = endTime.toDate();
+      endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -738,6 +815,35 @@ class _HomePageState extends State<HomePage> with RouteAware {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Time display on the left
+                if (startTimeStr.isNotEmpty && endTimeStr.isNotEmpty)
+                  Container(
+                    width: 70,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          startTimeStr,
+                          style: const TextStyle(
+                            color: Color(0xFF2D3436),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          endTimeStr,
+                          style: const TextStyle(
+                            color: Color(0xFF2D3436),
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (startTimeStr.isNotEmpty && endTimeStr.isNotEmpty)
+                  const SizedBox(width: 12),
+                // Session type icon
                 Container(
                   width: 40,
                   height: 40,
