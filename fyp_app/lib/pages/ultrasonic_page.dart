@@ -35,9 +35,11 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
   double? dominantFrequency;
 
   int targetFrequency = -1;
+  Timestamp? _frequencyGeneratedAt;
   bool _loadingFrequency = true;
   String? _lecturerRole;
 
+  StreamSubscription<DocumentSnapshot>? _sessionSubscription;
   Timer? _detectionTimer;
   int _sampleRate = 44100;
   int _lastFileSize = 0;
@@ -56,7 +58,7 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
   @override
   void initState() {
     super.initState();
-    _fetchTargetFrequency();
+    _subscribeToSessionUpdates();
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -185,42 +187,49 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
     });
   }
 
-  Future<void> _fetchTargetFrequency() async {
-    try {
-      final sessionDoc = await FirebaseFirestore.instance
-          .collection('Sessions')
-          .doc(widget.sessionId)
-          .get();
+  void _subscribeToSessionUpdates() {
+    _sessionSubscription = FirebaseFirestore.instance
+        .collection('Sessions')
+        .doc(widget.sessionId)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            if (snapshot.exists && mounted) {
+              final data = snapshot.data();
+              final frequency = data?['targetFrequency'] ?? -1;
+              final generatedAt = data?['frequencyGeneratedAt'] as Timestamp?;
+              final sessionType = data?['sessionsType'] ?? 'Lecturer';
 
-      if (sessionDoc.exists && mounted) {
-        final data = sessionDoc.data();
-        final frequency = data?['targetFrequency'] ?? -1;
-        final sessionType = data?['sessionsType'] ?? 'Lecturer';
-
-        setState(() {
-          targetFrequency = frequency is int
-              ? frequency
-              : (frequency as num).toInt();
-          _lecturerRole = sessionType == 'Lecture Class' ? 'Lecturer' : 'Tutor';
-          _loadingFrequency = false;
-        });
-      } else if (mounted) {
-        setState(() {
-          _loadingFrequency = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching target frequency: $e');
-      if (mounted) {
-        setState(() {
-          _loadingFrequency = false;
-        });
-      }
-    }
+              setState(() {
+                targetFrequency = frequency is int
+                    ? frequency
+                    : (frequency as num).toInt();
+                _frequencyGeneratedAt = generatedAt;
+                _lecturerRole = sessionType == 'Lecture Class'
+                    ? 'Lecturer'
+                    : 'Tutor';
+                _loadingFrequency = false;
+              });
+            } else if (mounted) {
+              setState(() {
+                _loadingFrequency = false;
+              });
+            }
+          },
+          onError: (e) {
+            debugPrint('Error listening to session updates: $e');
+            if (mounted) {
+              setState(() {
+                _loadingFrequency = false;
+              });
+            }
+          },
+        );
   }
 
   @override
   void dispose() {
+    _sessionSubscription?.cancel();
     _detectionTimer?.cancel();
     _barAnimationTimer?.cancel();
     audioRecorder.dispose();
@@ -337,9 +346,22 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
               });
 
               // CHANGE THIS: Reduce tolerance from 100 Hz to 50 Hz
+              // With 100Hz steps (e.g. 18000, 18100), a 30-50Hz tolerance prevents overlap.
               const tolerance = 50;
 
-              if ((detectedFrequency - targetFrequency).abs() < tolerance) {
+              // Validate timestamp (Anti-Replay)
+              bool isFresh = false;
+              if (_frequencyGeneratedAt != null) {
+                final now = DateTime.now();
+                final generatedTime = _frequencyGeneratedAt!.toDate();
+                // Allow up to 15 seconds delay (broadcasts every 7s)
+                if (now.difference(generatedTime).inSeconds < 15) {
+                  isFresh = true;
+                }
+              }
+
+              if (isFresh &&
+                  (detectedFrequency - targetFrequency).abs() < tolerance) {
                 timer.cancel();
                 await _stopRecording();
 

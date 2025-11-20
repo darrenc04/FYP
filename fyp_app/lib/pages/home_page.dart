@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +9,6 @@ import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'ultrasonic_page.dart';
-import 'face_verification_page.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
@@ -26,8 +26,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
   // Audio player for teachers
   final AudioPlayer tonePlayer = AudioPlayer();
-  Map<String, bool> _isPlayingTone = {};
-  Map<String, bool> _isGenerating = {};
+  Map<String, Timer> _broadcastTimers = {};
+  Map<String, bool> _isBroadcasting = {};
 
   @override
   void initState() {
@@ -53,6 +53,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
   @override
   void dispose() {
     tonePlayer.dispose();
+    for (var timer in _broadcastTimers.values) {
+      timer.cancel();
+    }
     super.dispose();
   }
 
@@ -87,9 +90,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 if (startTime != null) {
                   final sessionDate = startTime.toDate();
                   final now = DateTime.now();
-                  
+
                   // Compare only date components (year, month, day)
-                  final isToday = sessionDate.year == now.year &&
+                  final isToday =
+                      sessionDate.year == now.year &&
                       sessionDate.month == now.month &&
                       sessionDate.day == now.day;
 
@@ -102,10 +106,13 @@ class _HomePageState extends State<HomePage> with RouteAware {
                           .doc(sessionId)
                           .collection('Attendance')
                           .doc(docId)
-                          .get(const GetOptions(source: Source.server)); // Force server read
+                          .get(
+                            const GetOptions(source: Source.server),
+                          ); // Force server read
 
                       // Check if attendance document exists AND has a valid 'status' field
-                      final attendanceMarked = attendanceSnap.exists && 
+                      final attendanceMarked =
+                          attendanceSnap.exists &&
                           (attendanceSnap.data()?['status'] != null);
 
                       sessions.add({
@@ -179,9 +186,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
       double volumeScale;
       if (frequency >= 17000) {
-        volumeScale = 0.25;
+        volumeScale = 1.0; // Max volume for near-ultrasound to ensure detection
       } else if (frequency >= 15000) {
-        volumeScale = 0.20;
+        volumeScale = 0.5;
       } else if (frequency >= 13000) {
         volumeScale = 0.15;
       } else if (frequency >= 11000) {
@@ -189,7 +196,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
       } else if (frequency >= 9000) {
         volumeScale = 0.10;
       } else {
-        volumeScale = 0.08;
+        volumeScale = 0.05;
       }
 
       int pcmSample = (sample * volumeScale * 32767).round();
@@ -249,109 +256,79 @@ class _HomePageState extends State<HomePage> with RouteAware {
     return bytes;
   }
 
-  Future<void> _generateFrequency(String sessionId) async {
+  Future<void> _toggleBroadcast(String sessionId) async {
+    if (_isBroadcasting[sessionId] == true) {
+      await _stopBroadcast(sessionId);
+    } else {
+      await _startBroadcast(sessionId);
+    }
+  }
+
+  Future<void> _startBroadcast(String sessionId) async {
+    setState(() {
+      _isBroadcasting[sessionId] = true;
+    });
+
+    // Immediate first run
+    await _broadcastStep(sessionId);
+
+    // Schedule periodic updates every 7 seconds
+    _broadcastTimers[sessionId] = Timer.periodic(const Duration(seconds: 7), (
+      timer,
+    ) async {
+      if (_isBroadcasting[sessionId] != true) {
+        timer.cancel();
+        return;
+      }
+      await _broadcastStep(sessionId);
+    });
+  }
+
+  Future<void> _broadcastStep(String sessionId) async {
     try {
-      setState(() {
-        _isGenerating[sessionId] = true;
-      });
-
-      // Generate random frequency between 6000-18000 Hz
+      // Generate random frequency between 18000-20000 Hz
+      // Generate random frequency between 18000-20000 Hz in 100 Hz steps
+      // Range: 18000, 18100, 18200, ..., 20000 (21 possibilities)
       final random = math.Random();
-      final frequencies = [
-        6000,
-        7000,
-        8000,
-        9000,
-        10000,
-        11000,
-        12000,
-        13000,
-        14000,
-        15000,
-        16000,
-        17000,
-        18000,
-      ];
-      final targetFrequency = frequencies[random.nextInt(frequencies.length)];
+      final step = random.nextInt(21);
+      final targetFrequency = 18000 + (step * 100);
 
-      // Update Firestore with generated frequency
+      // Update Firestore
       await FirebaseFirestore.instance
           .collection('Sessions')
           .doc(sessionId)
           .update({
-            'targetFrequency':
-                targetFrequency, // Updates from -1 to actual frequency
+            'targetFrequency': targetFrequency,
             'frequencyGeneratedAt': FieldValue.serverTimestamp(),
           });
 
-      // Refresh data to show the new frequency
-      await _refreshData();
+      // Play Audio
+      final tonePath = await _generateToneAudio(targetFrequency);
+      await tonePlayer.stop(); // Stop previous tone
+      await tonePlayer.setFilePath(tonePath);
+      await tonePlayer.setLoopMode(LoopMode.one); // Loop while active
+      await tonePlayer.play();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Code generated successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error generating code: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error generating code'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
         setState(() {
-          _isGenerating[sessionId] = false;
+          // Trigger rebuild to show current frequency if needed
         });
       }
+    } catch (e) {
+      debugPrint('Error in broadcast step: $e');
+      _stopBroadcast(sessionId); // Stop on error
     }
   }
 
-  Future<void> _playAudio(String sessionId, int frequency) async {
-    try {
-      final isPlaying = _isPlayingTone[sessionId] ?? false;
+  Future<void> _stopBroadcast(String sessionId) async {
+    _broadcastTimers[sessionId]?.cancel();
+    _broadcastTimers.remove(sessionId);
+    await tonePlayer.stop();
 
-      if (isPlaying) {
-        await tonePlayer.stop();
-        setState(() {
-          _isPlayingTone[sessionId] = false;
-        });
-        return;
-      }
-
+    if (mounted) {
       setState(() {
-        _isPlayingTone[sessionId] = true;
+        _isBroadcasting[sessionId] = false;
       });
-
-      final tonePath = await _generateToneAudio(frequency);
-      await tonePlayer.setFilePath(tonePath);
-      await tonePlayer.play();
-
-      tonePlayer.playerStateStream.listen((state) {
-        if (state.processingState == ProcessingState.completed) {
-          if (mounted) {
-            setState(() {
-              _isPlayingTone[sessionId] = false;
-            });
-          }
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _isPlayingTone[sessionId] = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error playing audio: $e")));
-      }
     }
   }
 
@@ -525,18 +502,18 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final lecturerName = session['lecturerName'] ?? 'Unknown';
     final attendanceMarked = session['attendanceMarked'] ?? false;
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
-    
+
     // Extract and format time
     final startTime = session['start_time'] as Timestamp?;
     final endTime = session['end_time'] as Timestamp?;
     String startTimeStr = '';
     String endTimeStr = '';
-    
+
     if (startTime != null) {
       final startDateTime = startTime.toDate();
       startTimeStr = DateFormat('hh:mm a').format(startDateTime).toUpperCase();
     }
-    
+
     if (endTime != null) {
       final endDateTime = endTime.toDate();
       endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
@@ -674,7 +651,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         ? null
                         : () async {
                             final isTutorialOrPractical =
-                                sessionType.toLowerCase().contains('tutorial') ||
+                                sessionType.toLowerCase().contains(
+                                  'tutorial',
+                                ) ||
                                 sessionType.toLowerCase().contains('practical');
 
                             if (isTutorialOrPractical) {
@@ -682,12 +661,13 @@ class _HomePageState extends State<HomePage> with RouteAware {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => FingerprintVerificationPage(
-                                    sessionId: session['id'],
-                                    courseCode: session['courseCode'] ?? '',
-                                    courseName: sessionName,
-                                    sessionType: sessionType,
-                                  ),
+                                  builder: (context) =>
+                                      FingerprintVerificationPage(
+                                        sessionId: session['id'],
+                                        courseCode: session['courseCode'] ?? '',
+                                        courseName: sessionName,
+                                        sessionType: sessionType,
+                                      ),
                                 ),
                               );
                             } else {
@@ -769,26 +749,19 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final targetFrequency = session['targetFrequency'] as int?;
     final sessionId = session['id'];
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
-    final isGenerating = _isGenerating[sessionId] ?? false;
-    final isPlaying = _isPlayingTone[sessionId] ?? false;
+    final isBroadcasting = _isBroadcasting[sessionId] ?? false;
 
-    // Check if frequency is valid (between 6000-18000 Hz)
-    final hasValidFrequency =
-        targetFrequency != null &&
-        targetFrequency >= 6000 &&
-        targetFrequency <= 18000;
-    
     // Extract and format time
     final startTime = session['start_time'] as Timestamp?;
     final endTime = session['end_time'] as Timestamp?;
     String startTimeStr = '';
     String endTimeStr = '';
-    
+
     if (startTime != null) {
       final startDateTime = startTime.toDate();
       startTimeStr = DateFormat('hh:mm a').format(startDateTime).toUpperCase();
     }
-    
+
     if (endTime != null) {
       final endDateTime = endTime.toDate();
       endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
@@ -897,105 +870,88 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Teacher-specific controls
-            Row(
-              children: [
-                // Generate Audio Button
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: !hasValidFrequency && !isGenerating
-                        ? () => _generateFrequency(sessionId)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: !hasValidFrequency
-                          ? const Color(0xFF4A9FE8)
-                          : Colors.grey,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                // Broadcast Button
+                const SizedBox(width: 8),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _toggleBroadcast(sessionId),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                    ),
-                    icon: Icon(
-                      !hasValidFrequency ? Icons.code : Icons.check_circle,
-                      size: 16,
-                    ),
-                    label: Text(
-                      isGenerating
-                          ? 'Generating...'
-                          : !hasValidFrequency
-                          ? 'Generate Code'
-                          : 'Code Generated',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                      decoration: BoxDecoration(
+                        color: isBroadcasting
+                            ? Colors.red.withOpacity(0.1)
+                            : const Color(0xFF4A9FE8).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isBroadcasting
+                              ? Colors.red
+                              : const Color(0xFF4A9FE8),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isBroadcasting ? Icons.stop : Icons.play_arrow,
+                            color: isBroadcasting
+                                ? Colors.red
+                                : const Color(0xFF4A9FE8),
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isBroadcasting
+                                ? 'Stop Broadcast'
+                                : 'Start Broadcast',
+                            style: TextStyle(
+                              color: isBroadcasting
+                                  ? Colors.red
+                                  : const Color(0xFF4A9FE8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-
-                // Play Audio Button (only if frequency is generated)
-                if (hasValidFrequency) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _playAudio(sessionId, targetFrequency),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isPlaying ? Colors.red : Colors.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: Icon(
-                        isPlaying ? Icons.stop : Icons.play_arrow,
-                        size: 16,
-                      ),
-                      label: Text(
-                        isPlaying ? 'Stop' : 'Play',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
 
             // Show frequency info if generated
-            // if (hasValidFrequency) ...[
-            //   const SizedBox(height: 8),
-            //   Container(
-            //     padding: const EdgeInsets.all(8),
-            //     decoration: BoxDecoration(
-            //       color: Colors.green.withOpacity(0.1),
-            //       borderRadius: BorderRadius.circular(8),
-            //       border: Border.all(color: Colors.green.withOpacity(0.3)),
-            //     ),
-            //     child: Row(
-            //       mainAxisAlignment: MainAxisAlignment.center,
-            //       children: [
-            //         const Icon(Icons.graphic_eq, color: Colors.green, size: 14),
-            //         const SizedBox(width: 6),
-            //         Text(
-            //           'Frequency: ${(targetFrequency / 1000).toStringAsFixed(0)} kHz',
-            //           style: const TextStyle(
-            //             color: Colors.green,
-            //             fontSize: 11,
-            //             fontWeight: FontWeight.w600,
-            //           ),
-            //         ),
-            //       ],
-            //     ),
-            //   ),
-            // ],
+            if (isBroadcasting && targetFrequency != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.graphic_eq, color: Colors.green, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Broadcasting: ${(targetFrequency / 1000).toStringAsFixed(1)} kHz',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

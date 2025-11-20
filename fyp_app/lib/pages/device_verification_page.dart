@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 import 'location_verification_page.dart';
 
 class DeviceVerificationPage extends StatefulWidget {
@@ -25,11 +27,27 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
   bool _verifying = true;
   bool _verified = false;
   String? _errorMessage;
+  final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
   @override
   void initState() {
     super.initState();
     _verifyDeviceToken();
+  }
+
+  Future<String> _getDeviceId() async {
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await _deviceInfo.androidInfo;
+        return androidInfo.id; // Unique Android ID
+      } else if (Platform.isIOS) {
+        final iosInfo = await _deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor ?? '';
+      }
+    } catch (e) {
+      debugPrint('Error getting device ID: $e');
+    }
+    return '';
   }
 
   Future<void> _verifyDeviceToken() async {
@@ -60,13 +78,16 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
       final userData = userDoc.data();
       final storedDeviceToken = userData?['deviceToken'] ?? '';
 
-      // For testing purposes, you can get the actual device token
-      // In production, you'd use Firebase Messaging to get the token
-      // For now, we'll check if it exists and matches
+      // Get current device ID dynamically
+      final currentDeviceToken = await _getDeviceId();
 
-      // Simulate device token from device (in real app, get from FCM)
-      const String currentDeviceToken =
-          'OPM1.171019.026'; // This should come from device
+      if (currentDeviceToken.isEmpty) {
+        setState(() {
+          _verifying = false;
+          _errorMessage = 'Unable to get device ID';
+        });
+        return;
+      }
 
       if (storedDeviceToken.isEmpty) {
         setState(() {
@@ -95,22 +116,16 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
       await Future.delayed(const Duration(seconds: 1));
 
       if (mounted) {
-        if (widget.returnResultOnVerified) {
-          Navigator.pop(context, true);
-        } else if (widget.detectedFrequency != null) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => LocationVerificationPage(
-                sessionId: widget.sessionId,
-                sessionName: widget.sessionName,
-                detectedFrequency: widget.detectedFrequency!,
-              ),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LocationVerificationPage(
+              sessionId: widget.sessionId,
+              sessionName: widget.sessionName,
+              detectedFrequency: widget.detectedFrequency!,
             ),
-          );
-        } else {
-          Navigator.pop(context, true);
-        }
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Device verification error: $e');
@@ -130,7 +145,7 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Device Verification',
@@ -216,7 +231,7 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(context, false),
+                  onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF49555B),
