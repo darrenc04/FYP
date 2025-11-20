@@ -208,6 +208,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final String filePath = p.join(appDocDir.path, "tone_${frequency}hz.wav");
     final file = File(filePath);
 
+    if (await file.exists()) {
+      return filePath;
+    }
+
     final dataSize = samples.length;
     final header = [
       0x52,
@@ -269,10 +273,11 @@ class _HomePageState extends State<HomePage> with RouteAware {
       _isBroadcasting[sessionId] = true;
     });
 
-    // Immediate first run
-    await _broadcastStep(sessionId);
+    // Immediate first run (don't await, so timer starts immediately)
+    _broadcastStep(sessionId);
 
     // Schedule periodic updates every 7 seconds
+    _broadcastTimers[sessionId]?.cancel(); // Safety check
     _broadcastTimers[sessionId] = Timer.periodic(const Duration(seconds: 7), (
       timer,
     ) async {
@@ -924,34 +929,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 ),
               ],
             ),
-
-            // Show frequency info if generated
-            if (isBroadcasting && targetFrequency != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.graphic_eq, color: Colors.green, size: 14),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Broadcasting: ${(targetFrequency / 1000).toStringAsFixed(1)} kHz',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),

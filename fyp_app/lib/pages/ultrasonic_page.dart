@@ -242,7 +242,12 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
 
   Future<void> _startRecording() async {
     // Check if frequency is valid before starting
-    if (targetFrequency == -1) {
+    final now = DateTime.now();
+    final isFresh =
+        _frequencyGeneratedAt != null &&
+        now.difference(_frequencyGeneratedAt!.toDate()).inSeconds < 20;
+
+    if (targetFrequency == -1 || !isFresh) {
       setState(() {
         detectionMessage =
             '${_lecturerRole ?? 'Lecturer'} hasn\'t generated code yet';
@@ -255,7 +260,7 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
         builder: (context) => AlertDialog(
           title: const Text('Cannot Take Attendance'),
           content: Text(
-            '${_lecturerRole ?? 'Lecturer'} hasn\'t generated the attendance code yet. Please try again later.',
+            '${_lecturerRole ?? 'Lecturer'} hasn\'t generated the attendance code yet (or code expired). Please ask them to broadcast.',
           ),
           actions: [
             TextButton(
