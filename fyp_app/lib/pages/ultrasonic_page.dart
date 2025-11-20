@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:typed_data';
 import 'dart:math' as math;
 import 'dart:async';
@@ -27,6 +28,7 @@ class MarkAttendancePage extends StatefulWidget {
 class _MarkAttendancePageState extends State<MarkAttendancePage>
     with TickerProviderStateMixin {
   final AudioRecorder audioRecorder = AudioRecorder();
+  final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
   bool isRecording = false;
   bool isDetecting = false;
@@ -83,6 +85,21 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
         end: _barHeights[entry.key],
       ).animate(CurvedAnimation(parent: entry.value, curve: Curves.easeInOut));
     }).toList();
+  }
+
+  Future<String> _getDeviceId() async {
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await _deviceInfo.androidInfo;
+        return androidInfo.id; // Unique Android ID
+      } else if (Platform.isIOS) {
+        final iosInfo = await _deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor ?? '';
+      }
+    } catch (e) {
+      print('Error getting device ID: $e');
+    }
+    return '';
   }
 
   void _startBarAnimations() {
@@ -241,45 +258,17 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
   }
 
   Future<void> _startRecording() async {
-    // Check if frequency is valid before starting
-    final now = DateTime.now();
-    final isFresh =
-        _frequencyGeneratedAt != null &&
-        now.difference(_frequencyGeneratedAt!.toDate()).inSeconds < 20;
-
-    if (targetFrequency == -1 || !isFresh) {
-      setState(() {
-        detectionMessage =
-            '${_lecturerRole ?? 'Lecturer'} hasn\'t generated code yet';
-        attendanceMarked = false;
-      });
-
-      // Show error dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Cannot Take Attendance'),
-          content: Text(
-            '${_lecturerRole ?? 'Lecturer'} hasn\'t generated the attendance code yet (or code expired). Please ask them to broadcast.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+    if (!await audioRecorder.hasPermission()) {
+      _showError('Microphone permission required');
       return;
     }
 
-    if (await audioRecorder.hasPermission()) {
-      final Directory appDocumentDir = await getApplicationDocumentsDirectory();
-      final String filePath = p.join(
-        appDocumentDir.path,
-        "attendance_recording.wav",
-      );
+    final tempDir = await getTemporaryDirectory();
+    final fileName =
+        'attendance_recording_${DateTime.now().millisecondsSinceEpoch}.wav';
+    final filePath = p.join(tempDir.path, fileName);
 
+    try {
       await audioRecorder.start(
         const RecordConfig(
           encoder: AudioEncoder.wav,
@@ -301,6 +290,14 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
 
       _startBarAnimations();
       _startFrequencyDetection(filePath);
+    } catch (e) {
+      _showError('Failed to start recording: $e');
+      await audioRecorder.stop();
+      _stopBarAnimations();
+      setState(() {
+        isRecording = false;
+        isDetecting = false;
+      });
     }
   }
 
@@ -398,6 +395,16 @@ class _MarkAttendancePageState extends State<MarkAttendancePage>
       dominantFrequency = null;
       detectionMessage = null;
     });
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   List<double>? _parseWavFile(Uint8List bytes) {

@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
+import 'dart:math';
+import '../services/email_service.dart';
 
 class DeviceLinkingPage extends StatefulWidget {
   const DeviceLinkingPage({Key? key}) : super(key: key);
@@ -21,7 +23,7 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
   String _linkedDeviceId = '';
   DateTime? _lastRemovedDate;
   bool _isLoading = true;
-  bool _canRemove = true;
+  // Remove the _canRemove variable as we're removing the 7-day cooldown
 
   @override
   void initState() {
@@ -50,14 +52,6 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
           _linkedDeviceId = deviceToken;
           _isEnabled = deviceToken.isNotEmpty;
           _lastRemovedDate = lastRemoved?.toDate();
-
-          // // Check if one week has passed since last removal
-          // if (_lastRemovedDate != null) {
-          //   final daysSinceRemoval = DateTime.now()
-          //       .difference(_lastRemovedDate!)
-          //   _canRemove    .inDays;
-          //    = daysSinceRemoval >= 7;
-          // }
         });
       }
     } catch (e) {
@@ -75,11 +69,139 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
       } else if (Platform.isIOS) {
         final iosInfo = await _deviceInfo.iosInfo;
         return iosInfo.identifierForVendor ?? '';
+      } else if (Platform.isWindows) {
+        final windowsInfo = await _deviceInfo.windowsInfo;
+        return windowsInfo.deviceId;
       }
     } catch (e) {
       print('Error getting device ID: $e');
     }
     return '';
+  }
+
+  // Check if device has performed an action in the last 24 hours
+  Future<bool> _checkDeviceRestriction(String deviceId) async {
+    try {
+      final yesterday = DateTime.now().subtract(const Duration(hours: 24));
+      final logs = await _firestore
+          .collection('DeviceLogs')
+          .where('deviceId', isEqualTo: deviceId)
+          .where('timestamp', isGreaterThan: Timestamp.fromDate(yesterday))
+          .get();
+
+      // If there are any logs in the last 24 hours, restrict action
+      return logs.docs.isEmpty;
+    } catch (e) {
+      debugPrint('Error checking device restriction: $e');
+      // IMPORTANT: If it's a missing index error, we want to know!
+      // Don't just block the user silently.
+      if (e.toString().contains('failed-precondition')) {
+        _showErrorSnackBar('Missing Database Index. Check console for link.');
+        throw e; // Re-throw to stop execution but let the user know
+      }
+      _showErrorSnackBar(
+        'Error checking limit: ${e.toString().split(']').last.trim()}',
+      );
+      return false; // Fail safe: block if error
+    }
+  }
+
+  Future<void> _logDeviceAction(
+    String deviceId,
+    String action,
+    String email,
+  ) async {
+    try {
+      await _firestore.collection('DeviceLogs').add({
+        'deviceId': deviceId,
+        'action': action, // 'bind' or 'unbind'
+        'email': email,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error logging device action: $e');
+    }
+  }
+
+  Future<bool> _verifyAction(String action) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) return false;
+
+    // 1. Generate Code
+    final code = (Random().nextInt(900000) + 100000).toString();
+
+    // 2. Send Email
+    _showLoadingDialog('Sending verification code...');
+    final sent = await EmailService.sendVerificationCode(user.email!, code);
+    Navigator.pop(context); // Dismiss loading
+
+    if (!sent) {
+      _showErrorSnackBar(
+        'Failed to send verification email. Check console/config.',
+      );
+      return false;
+    }
+
+    // 3. Show Verification Dialog
+    final enteredCode = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        String input = '';
+        return AlertDialog(
+          title: Text('Verify $action'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('A verification code has been sent to ${user.email}.'),
+              const SizedBox(height: 16),
+              TextField(
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: const InputDecoration(
+                  labelText: 'Enter 6-digit Code',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (v) => input = v,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, input),
+              child: const Text('Verify'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (enteredCode == code) {
+      return true;
+    } else if (enteredCode != null) {
+      _showErrorSnackBar('Invalid verification code');
+    }
+    return false;
+  }
+
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 20),
+            Text(message),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleDeviceLinking(bool value) async {
@@ -90,7 +212,18 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
       final docId = user.email!.toLowerCase();
 
       if (value) {
-        // Show confirmation dialog before binding
+        // BINDING FLOW
+
+        // 1. Check Restriction FIRST (Save user time)
+        final canAct = await _checkDeviceRestriction(_currentDeviceId);
+        if (!canAct) {
+          _showErrorSnackBar(
+            'This device has reached its daily limit (1 action/day).',
+          );
+          return;
+        }
+
+        // 2. Confirm Dialog
         final confirmed = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -100,30 +233,12 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
                 Text(
-                  'Are you sure you want to bind this device to your account?',
+                  'Are you sure you want to bind this device?',
                   style: TextStyle(fontWeight: FontWeight.w500),
-                ),
-                SizedBox(height: 16),
-                Text(
-                  'Important:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange,
-                  ),
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '• Only this device will be able to mark attendance',
-                  style: TextStyle(fontSize: 13),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  '• One device can only be linked to one account',
-                  style: TextStyle(fontSize: 13),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  '• After removal, you must wait 7 days to remove again',
+                  '• 1 action per device per day limit applies.',
                   style: TextStyle(fontSize: 13, color: Colors.red),
                 ),
               ],
@@ -135,11 +250,8 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Bind Device'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: const Text('Bind'),
               ),
             ],
           ),
@@ -147,7 +259,11 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
 
         if (confirmed != true) return;
 
-        // Check if this device is already linked to another user
+        // 3. Email Verification
+        final verified = await _verifyAction('Binding');
+        if (!verified) return;
+
+        // 4. Check if device linked to another user
         final existingDevice = await _firestore
             .collection('Users')
             .where('deviceToken', isEqualTo: _currentDeviceId)
@@ -161,29 +277,24 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
           return;
         }
 
-        // Link device
+        // 5. Perform Bind
         await _firestore.collection('Users').doc(docId).update({
           'deviceToken': _currentDeviceId,
         });
+
+        // 6. Log Action
+        await _logDeviceAction(_currentDeviceId, 'bind', user.email!);
 
         setState(() {
           _isEnabled = true;
           _linkedDeviceId = _currentDeviceId;
         });
 
-        _showSuccessSnackBar('Device successfully linked to your account ✓');
+        _showSuccessSnackBar('Device successfully linked ✓');
       } else {
-        // Disable (not remove)
-        await _firestore.collection('Users').doc(docId).update({
-          'deviceToken': '',
-        });
-
-        setState(() {
-          _isEnabled = false;
-          _linkedDeviceId = '';
-        });
-
-        _showSuccessSnackBar('Device linking disabled');
+        // UNBINDING FLOW (Disable toggle)
+        // Usually unbind is done via "Remove Device" button, but if toggle is used:
+        await _removeDevice();
       }
     } catch (e) {
       _showErrorSnackBar('Error updating device linking: $e');
@@ -191,19 +302,24 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
   }
 
   Future<void> _removeDevice() async {
-    if (!_canRemove) {
-      final daysLeft = 7 - DateTime.now().difference(_lastRemovedDate!).inDays;
-      _showErrorSnackBar('You can remove device again in $daysLeft day(s)');
+    // Remove the 7-day cooldown check since we have daily limits
+
+    // 1. Check Restriction
+    final canAct = await _checkDeviceRestriction(_currentDeviceId);
+    if (!canAct) {
+      _showErrorSnackBar(
+        'This device has reached its daily limit (1 action/day).',
+      );
       return;
     }
 
-    // Show confirmation dialog
+    // 2. Confirm
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Device'),
         content: const Text(
-          'Are you sure you want to remove this device? You can only remove a device once per week.',
+          'Are you sure you want to remove this device? You will need to verify via email.',
         ),
         actions: [
           TextButton(
@@ -221,6 +337,10 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
 
     if (confirmed != true) return;
 
+    // 3. Email Verification
+    final verified = await _verifyAction('Unbinding');
+    if (!verified) return;
+
     try {
       final user = _auth.currentUser;
       if (user == null) return;
@@ -231,11 +351,14 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
         'lastDeviceRemoved': FieldValue.serverTimestamp(),
       });
 
+      // 4. Log Action
+      await _logDeviceAction(_currentDeviceId, 'unbind', user.email!);
+
       setState(() {
         _isEnabled = false;
         _linkedDeviceId = '';
         _lastRemovedDate = DateTime.now();
-        _canRemove = true;
+        // Remove _canRemove as we're removing the 7-day cooldown
       });
 
       _showSuccessSnackBar('Device removed successfully');
@@ -313,6 +436,7 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
                         ),
                         Switch(
                           value: _isEnabled,
+                          // Remove the null check for _canRemove since we removed the 7-day cooldown
                           onChanged: _isEnabled ? null : _toggleDeviceLinking,
                           activeColor: Colors.green,
                         ),
@@ -349,10 +473,11 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
                   ],
 
                   // Remove Device Button
+                  // Remove the _canRemove check since we removed the 7-day cooldown
                   if (_isEnabled) ...[
                     const SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _canRemove ? _removeDevice : null,
+                      onPressed: _removeDevice,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
@@ -363,13 +488,11 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        disabledBackgroundColor: Colors.grey,
+                        // Remove disabled background color since we removed the 7-day cooldown
                       ),
-                      child: Text(
-                        _canRemove
-                            ? 'Remove Device'
-                            : 'Remove Device (Available in ${7 - DateTime.now().difference(_lastRemovedDate!).inDays} days)',
-                        style: const TextStyle(
+                      child: const Text(
+                        'Remove Device',
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -420,8 +543,13 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
                           'One device can only be linked to one user account at a time.',
                           color: Colors.orange,
                         ),
+                        // Update this bullet point to reflect the removal of the 7-day cooldown
                         _buildBulletPoint(
-                          'After removing a device, you must wait 7 days before you can remove it again to prevent frequent device changes.',
+                          'Security: Email verification is required for binding and unbinding.',
+                          color: Colors.blue,
+                        ),
+                        _buildBulletPoint(
+                          'Restriction: A device can only perform 1 bind/unbind action per day.',
                           color: Colors.red,
                         ),
                       ],

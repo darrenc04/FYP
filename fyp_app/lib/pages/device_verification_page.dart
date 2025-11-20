@@ -106,6 +106,23 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
         return;
       }
 
+      // NEW: Check if this device token already exists in the session attendance
+      final sessionAttendance = await FirebaseFirestore.instance
+          .collection('Sessions')
+          .doc(widget.sessionId)
+          .collection('Attendance')
+          .where('deviceToken', isEqualTo: currentDeviceToken)
+          .get();
+
+      if (sessionAttendance.docs.isNotEmpty) {
+        setState(() {
+          _verifying = false;
+          _errorMessage =
+              'This device has already been used to mark attendance in this session. Each device can only be used once per session.';
+        });
+        return;
+      }
+
       // Device verified, proceed to location verification
       setState(() {
         _verifying = false;
