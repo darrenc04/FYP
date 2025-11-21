@@ -176,11 +176,11 @@ class _HomePageState extends State<HomePage> with RouteAware {
   // Check if current time is within session attendance window
   bool _canMarkAttendance(Timestamp? startTime, Timestamp? endTime) {
     if (startTime == null || endTime == null) return false;
-    
+
     final now = DateTime.now();
     final start = startTime.toDate();
     final end = endTime.toDate();
-    
+
     return now.isAfter(start) && now.isBefore(end);
   }
 
@@ -514,7 +514,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final sessionId = session['id'] ?? 'Unknown ID';
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
     final sessionType = session['sessionsType'] ?? 'Class';
-    final location = session['location'] ?? 'No Location';
+
     final lecturerName = session['lecturerName'] ?? 'Unknown';
     final attendanceMarked = session['attendanceMarked'] ?? false;
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
@@ -623,27 +623,6 @@ class _HomePageState extends State<HomePage> with RouteAware {
             Row(
               children: [
                 const Icon(
-                  Icons.home_outlined,
-                  color: Color(0xFF636E72),
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    location,
-                    style: const TextStyle(
-                      color: Color(0xFF636E72),
-                      fontSize: 11,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(
                   Icons.person_outline,
                   color: Color(0xFF636E72),
                   size: 14,
@@ -663,7 +642,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: attendanceMarked || !_canMarkAttendance(startTime, endTime)
+                    onTap:
+                        attendanceMarked ||
+                            !_canMarkAttendance(startTime, endTime)
                         ? null
                         : () async {
                             final isTutorialOrPractical =
@@ -709,12 +690,16 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
+                        color:
+                            (attendanceMarked ||
+                                !_canMarkAttendance(startTime, endTime))
                             ? Colors.grey.withOpacity(0.1)
                             : const Color(0xFF4A9FE8).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
+                          color:
+                              (attendanceMarked ||
+                                  !_canMarkAttendance(startTime, endTime))
                               ? Colors.grey.withOpacity(0.3)
                               : const Color(0xFF4A9FE8),
                           width: 1,
@@ -727,7 +712,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                             attendanceMarked
                                 ? Icons.check_circle
                                 : Icons.touch_app,
-                            color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
+                            color:
+                                (attendanceMarked ||
+                                    !_canMarkAttendance(startTime, endTime))
                                 ? const Color(0xFF636E72)
                                 : const Color(0xFF4A9FE8),
                             size: 14,
@@ -738,7 +725,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                 ? 'Attendance Marked'
                                 : 'Mark Attendance',
                             style: TextStyle(
-                              color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
+                              color:
+                                  (attendanceMarked ||
+                                      !_canMarkAttendance(startTime, endTime))
                                   ? const Color(0xFF636E72)
                                   : const Color(0xFF4A9FE8),
                               fontSize: 11,
@@ -761,7 +750,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   Widget _buildTeacherCard(Map<String, dynamic> session) {
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
     final sessionType = session['sessionsType'] ?? 'Class';
-    final location = session['location'] ?? 'No Location';
+
     final targetFrequency = session['targetFrequency'] as int?;
     final sessionId = session['id'];
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
@@ -869,25 +858,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
             ),
             const SizedBox(height: 12),
             Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                const Icon(
-                  Icons.home_outlined,
-                  color: Color(0xFF636E72),
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    location,
-                    style: const TextStyle(
-                      color: Color(0xFF636E72),
-                      fontSize: 11,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
                 // Broadcast Button
-                const SizedBox(width: 8),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(

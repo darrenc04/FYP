@@ -80,29 +80,60 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
   }
 
   // Check if device has performed an action in the last 24 hours
-  Future<bool> _checkDeviceRestriction(String deviceId) async {
+  // Check if user or device has reached their binding limits
+  Future<bool> _checkBindingEligibility(String deviceId, String email) async {
     try {
       final yesterday = DateTime.now().subtract(const Duration(hours: 24));
-      final logs = await _firestore
+
+      // 1. Check User Limit (Max 2 binds per 24h)
+      final userLogs = await _firestore
           .collection('DeviceLogs')
-          .where('deviceId', isEqualTo: deviceId)
+          .where('email', isEqualTo: email)
+          .where('action', isEqualTo: 'bind')
           .where('timestamp', isGreaterThan: Timestamp.fromDate(yesterday))
           .get();
 
-      // If there are any logs in the last 24 hours, restrict action
-      return logs.docs.isEmpty;
+      if (userLogs.docs.length >= 2) {
+        _showErrorSnackBar(
+          'You have reached your daily binding limit (2 binds/day).',
+        );
+        return false;
+      }
+
+      // 2. Check Device Ownership (Prevent Sharing)
+      // A device cannot switch owners within 24 hours.
+      final deviceLogs = await _firestore
+          .collection('DeviceLogs')
+          .where('deviceId', isEqualTo: deviceId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (deviceLogs.docs.isNotEmpty) {
+        final lastLog = deviceLogs.docs.first.data();
+        final lastUser = lastLog['email'] as String?;
+        final lastTime = (lastLog['timestamp'] as Timestamp).toDate();
+
+        // If last user was DIFFERENT and it was within 24 hours -> BLOCK
+        if (lastUser != email && lastTime.isAfter(yesterday)) {
+          _showErrorSnackBar(
+            'This device was recently used by another account. Please wait 24 hours before switching owners.',
+          );
+          return false;
+        }
+      }
+
+      return true;
     } catch (e) {
-      debugPrint('Error checking device restriction: $e');
-      // IMPORTANT: If it's a missing index error, we want to know!
-      // Don't just block the user silently.
+      debugPrint('Error checking binding eligibility: $e');
       if (e.toString().contains('failed-precondition')) {
         _showErrorSnackBar('Missing Database Index. Check console for link.');
-        throw e; // Re-throw to stop execution but let the user know
+        throw e;
       }
       _showErrorSnackBar(
         'Error checking limit: ${e.toString().split(']').last.trim()}',
       );
-      return false; // Fail safe: block if error
+      return false;
     }
   }
 
@@ -215,13 +246,11 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
         // BINDING FLOW
 
         // 1. Check Restriction FIRST (Save user time)
-        final canAct = await _checkDeviceRestriction(_currentDeviceId);
-        if (!canAct) {
-          _showErrorSnackBar(
-            'This device has reached its daily limit (1 action/day).',
-          );
-          return;
-        }
+        final canAct = await _checkBindingEligibility(
+          _currentDeviceId,
+          user.email!,
+        );
+        if (!canAct) return;
 
         // 2. Confirm Dialog
         final confirmed = await showDialog<bool>(
@@ -238,7 +267,7 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '• 1 action per device per day limit applies.',
+                  '• Limit: 2 binds/day. Device cannot switch owners for 24h.',
                   style: TextStyle(fontSize: 13, color: Colors.red),
                 ),
               ],
@@ -304,13 +333,32 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
   Future<void> _removeDevice() async {
     // Remove the 7-day cooldown check since we have daily limits
 
-    // 1. Check Restriction
-    final canAct = await _checkDeviceRestriction(_currentDeviceId);
-    if (!canAct) {
-      _showErrorSnackBar(
-        'This device has reached its daily limit (1 action/day).',
-      );
-      return;
+    // 1. Check Restriction (Safety Check)
+    // Prevent unbinding if user has already reached daily bind limit (2),
+    // because they won't be able to bind a new device.
+    try {
+      final user = _auth.currentUser;
+      if (user != null && user.email != null) {
+        final yesterday = DateTime.now().subtract(const Duration(hours: 24));
+        final userLogs = await _firestore
+            .collection('DeviceLogs')
+            .where('email', isEqualTo: user.email)
+            .where('action', isEqualTo: 'bind')
+            .where('timestamp', isGreaterThan: Timestamp.fromDate(yesterday))
+            .get();
+
+        if (userLogs.docs.length >= 2) {
+          _showErrorSnackBar(
+            'Cannot remove device: You have reached your daily binding limit (2/day). You won\'t be able to bind a new device today.',
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking safety restriction: $e');
+      // Proceed with caution or block?
+      // Let's allow unbind if check fails to avoid blocking due to network errors,
+      // but maybe log it.
     }
 
     // 2. Confirm
@@ -549,7 +597,7 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
                           color: Colors.blue,
                         ),
                         _buildBulletPoint(
-                          'Restriction: A device can only perform 1 bind/unbind action per day.',
+                          'Restriction: Device ownership cannot be changed within 24 hours.',
                           color: Colors.red,
                         ),
                       ],

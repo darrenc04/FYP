@@ -145,7 +145,7 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
               builder: (context) => LocationVerificationPage(
                 sessionId: widget.sessionId,
                 sessionName: widget.sessionName,
-                detectedFrequency: widget.detectedFrequency,
+                detectedFrequency: widget.detectedFrequency!,
               ),
             ),
           );
