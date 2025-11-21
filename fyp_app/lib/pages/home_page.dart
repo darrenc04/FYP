@@ -173,6 +173,17 @@ class _HomePageState extends State<HomePage> with RouteAware {
     return 'C';
   }
 
+  // Check if current time is within session attendance window
+  bool _canMarkAttendance(Timestamp? startTime, Timestamp? endTime) {
+    if (startTime == null || endTime == null) return false;
+    
+    final now = DateTime.now();
+    final start = startTime.toDate();
+    final end = endTime.toDate();
+    
+    return now.isAfter(start) && now.isBefore(end);
+  }
+
   // Generate audio tone for teacher
   Future<String> _generateToneAudio(int frequency) async {
     const int sampleRate = 44100;
@@ -652,7 +663,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: attendanceMarked
+                    onTap: attendanceMarked || !_canMarkAttendance(startTime, endTime)
                         ? null
                         : () async {
                             final isTutorialOrPractical =
@@ -698,12 +709,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: attendanceMarked
+                        color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
                             ? Colors.grey.withOpacity(0.1)
                             : const Color(0xFF4A9FE8).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: attendanceMarked
+                          color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
                               ? Colors.grey.withOpacity(0.3)
                               : const Color(0xFF4A9FE8),
                           width: 1,
@@ -716,7 +727,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                             attendanceMarked
                                 ? Icons.check_circle
                                 : Icons.touch_app,
-                            color: attendanceMarked
+                            color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
                                 ? const Color(0xFF636E72)
                                 : const Color(0xFF4A9FE8),
                             size: 14,
@@ -727,7 +738,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                 ? 'Attendance Marked'
                                 : 'Mark Attendance',
                             style: TextStyle(
-                              color: attendanceMarked
+                              color: (attendanceMarked || !_canMarkAttendance(startTime, endTime))
                                   ? const Color(0xFF636E72)
                                   : const Color(0xFF4A9FE8),
                               fontSize: 11,

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:local_auth/local_auth.dart';
 import 'device_verification_page.dart';
+import 'location_verification_page.dart';
 
 class FingerprintVerificationPage extends StatefulWidget {
   final String sessionId;
@@ -117,8 +118,19 @@ class _FingerprintVerificationPageState
           );
 
           if (deviceVerified == true) {
-            // Fingerprint and device verified - mark attendance
-            await _markAttendance(user.email!.toLowerCase());
+            // Device verified - proceed to location verification
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LocationVerificationPage(
+                    sessionId: widget.sessionId,
+                    sessionName: widget.courseName,
+                    detectedFrequency: null, // No frequency for fingerprint
+                  ),
+                ),
+              );
+            }
           } else {
             _showErrorSnackBar('Device verification cancelled or failed.');
             setState(() => _isVerifying = false);

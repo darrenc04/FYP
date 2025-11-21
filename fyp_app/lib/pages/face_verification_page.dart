@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'device_verification_page.dart';
+import 'location_verification_page.dart';
 
 class FaceVerificationPage extends StatefulWidget {
   final String sessionId;
@@ -132,7 +133,24 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
       }
 
       // Verify face against registered embedding
-      await _verifyFaceAgainstRegistered(user.email!.toLowerCase(), image);
+      final isVerified = await _verifyFaceAgainstRegistered(
+        user.email!.toLowerCase(),
+        image,
+      );
+
+      if (isVerified && mounted) {
+        // Face and device verified - proceed to location verification
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LocationVerificationPage(
+              sessionId: widget.sessionId,
+              sessionName: widget.courseName,
+              detectedFrequency: null, // No frequency for face verification
+            ),
+          ),
+        );
+      }
     } catch (e) {
       print('Error in _verifyFaceAndMarkAttendance: $e');
       _showErrorSnackBar('Error: $e');
@@ -141,7 +159,8 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   }
 
   /// Send image to backend for verification
-  Future<void> _verifyFaceAgainstRegistered(String userId, XFile image) async {
+  /// Returns true if face matches, false otherwise
+  Future<bool> _verifyFaceAgainstRegistered(String userId, XFile image) async {
     try {
       _showInfoSnackBar('Verifying your face...');
 
@@ -171,29 +190,34 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
           setState(() => _verificationConfidence = confidence);
 
           if (isMatch) {
-            // Face matched - mark attendance
-            await _markAttendance(userId);
+            // Face matched - return true to proceed to location verification
+            return true;
           } else {
             _showErrorSnackBar(
               'Face does not match. Confidence: ${confidence.toStringAsFixed(2)}%',
             );
             setState(() => _isVerifying = false);
+            return false;
           }
         } catch (e) {
           _showErrorSnackBar('Error parsing response: $e');
           setState(() => _isVerifying = false);
+          return false;
         }
       } else if (response.statusCode == 404) {
         _showErrorSnackBar('User face not found. Please register first.');
         setState(() => _isVerifying = false);
+        return false;
       } else {
         _showErrorSnackBar('Verification failed: ${response.statusCode}');
         setState(() => _isVerifying = false);
+        return false;
       }
     } catch (e) {
       print('Error in _verifyFaceAgainstRegistered: $e');
       _showErrorSnackBar('Verification error: $e');
       setState(() => _isVerifying = false);
+      return false;
     }
   }
 

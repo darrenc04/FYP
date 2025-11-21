@@ -133,16 +133,23 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
       await Future.delayed(const Duration(seconds: 1));
 
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => LocationVerificationPage(
-              sessionId: widget.sessionId,
-              sessionName: widget.sessionName,
-              detectedFrequency: widget.detectedFrequency!,
+        // Check if we should return result or navigate
+        if (widget.returnResultOnVerified) {
+          // For fingerprint/face verification: return true to caller
+          Navigator.pop(context, true);
+        } else {
+          // For ultrasonic verification: navigate to location verification
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => LocationVerificationPage(
+                sessionId: widget.sessionId,
+                sessionName: widget.sessionName,
+                detectedFrequency: widget.detectedFrequency,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       debugPrint('Device verification error: $e');
