@@ -772,6 +772,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
       endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
     }
 
+    final isSessionActive = _canMarkAttendance(startTime, endTime);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -864,7 +866,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => _toggleBroadcast(sessionId),
+                    onTap: isSessionActive
+                        ? () => _toggleBroadcast(sessionId)
+                        : null,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -872,14 +876,18 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: isBroadcasting
-                            ? Colors.red.withOpacity(0.1)
-                            : const Color(0xFF4A9FE8).withOpacity(0.1),
+                        color: isSessionActive
+                            ? (isBroadcasting
+                                  ? Colors.red.withOpacity(0.1)
+                                  : const Color(0xFF4A9FE8).withOpacity(0.1))
+                            : Colors.grey.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: isBroadcasting
-                              ? Colors.red
-                              : const Color(0xFF4A9FE8),
+                          color: isSessionActive
+                              ? (isBroadcasting
+                                    ? Colors.red
+                                    : const Color(0xFF4A9FE8))
+                              : Colors.grey.withOpacity(0.3),
                           width: 1,
                         ),
                       ),
@@ -888,9 +896,11 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         children: [
                           Icon(
                             isBroadcasting ? Icons.stop : Icons.play_arrow,
-                            color: isBroadcasting
-                                ? Colors.red
-                                : const Color(0xFF4A9FE8),
+                            color: isSessionActive
+                                ? (isBroadcasting
+                                      ? Colors.red
+                                      : const Color(0xFF4A9FE8))
+                                : const Color(0xFF636E72),
                             size: 14,
                           ),
                           const SizedBox(width: 4),
@@ -899,9 +909,11 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                 ? 'Stop Broadcast'
                                 : 'Start Broadcast',
                             style: TextStyle(
-                              color: isBroadcasting
-                                  ? Colors.red
-                                  : const Color(0xFF4A9FE8),
+                              color: isSessionActive
+                                  ? (isBroadcasting
+                                        ? Colors.red
+                                        : const Color(0xFF4A9FE8))
+                                  : const Color(0xFF636E72),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
