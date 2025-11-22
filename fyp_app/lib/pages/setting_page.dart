@@ -3,6 +3,7 @@ import 'package:fyp_app/services/auth_service.dart';
 import 'login_page.dart';
 import 'device_biometric_page_v2.dart';
 import 'device_binding_page.dart';
+import 'profile_page.dart';
 
 class SettingPage extends StatelessWidget {
   const SettingPage({Key? key}) : super(key: key);
@@ -33,6 +34,18 @@ class SettingPage extends StatelessWidget {
           children: [
             _buildSettingButton(
               context,
+              title: 'Personal Info',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+
+            _buildSettingButton(
+              context,
               title: 'Device Biometric',
               onTap: () {
                 Navigator.push(
@@ -60,7 +73,10 @@ class SettingPage extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                ),
                 onPressed: () async {
                   final authService = AuthService();
                   try {
@@ -71,13 +87,18 @@ class SettingPage extends StatelessWidget {
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error signing out: ${e.toString()}')),
+                      SnackBar(
+                        content: Text('Error signing out: ${e.toString()}'),
+                      ),
                     );
                   }
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: const Text('Sign Out', style: TextStyle(fontSize: 16, color: Colors.red)),
+                  child: const Text(
+                    'Sign Out',
+                    style: TextStyle(fontSize: 16, color: Colors.red),
+                  ),
                 ),
               ),
             ),
