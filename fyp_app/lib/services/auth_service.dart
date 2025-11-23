@@ -160,18 +160,26 @@ class AuthService {
       final user = _auth.currentUser;
       if (user == null) throw Exception('No user logged in');
 
-      final ref = FirebaseStorage.instance
+      final userEmail = user.email!.toLowerCase();
+      final fileName = 'profile_picture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      // Upload to Firebase Storage: users/{email}/profile_picture
+      final storageRef = FirebaseStorage.instance
           .ref()
-          .child('profile_images')
-          .child('${user.uid}.jpg');
+          .child('users/$userEmail')
+          .child(fileName);
 
-      await ref.putFile(image);
-      final url = await ref.getDownloadURL();
+      await storageRef.putFile(image);
 
-      // Update Firestore with new URL
-      await updateUserProfile(user.uid, {'profilePicture': url});
+      // Get the download URL
+      final downloadUrl = await storageRef.getDownloadURL();
 
-      return url;
+      // Update Firestore with the image URL
+      await _firestore.collection('Users').doc(userEmail).update({
+        'profilePicture': downloadUrl,
+      });
+
+      return downloadUrl;
     } catch (e) {
       rethrow;
     }

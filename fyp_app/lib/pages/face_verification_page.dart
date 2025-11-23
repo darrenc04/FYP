@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -146,7 +148,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
             builder: (context) => LocationVerificationPage(
               sessionId: widget.sessionId,
               sessionName: widget.courseName,
-              detectedFrequency: null, // No frequency for face verification
+              detectedFrequency: 0, // No frequency for face verification
             ),
           ),
         );

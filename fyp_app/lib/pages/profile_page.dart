@@ -71,7 +71,10 @@ class _ProfilePageState extends State<ProfilePage> {
     if (pickedFile != null) {
       try {
         setState(() => _isLoading = true);
+
+        // Use auth service to upload profile picture
         await _authService.uploadProfilePicture(File(pickedFile.path));
+
         await _fetchUserData();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile picture updated')),

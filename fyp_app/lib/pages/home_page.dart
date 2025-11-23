@@ -10,6 +10,41 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'ultrasonic_page.dart';
 import 'package:intl/intl.dart';
+import 'package:fyp_app/pages/profile_page.dart';
+
+// Public holidays list (Year, Month, Day)
+final Set<String> publicHolidays = {
+  '2025-01-25', // Thaipusam
+  '2025-02-01', // Federal Territory Day
+  '2025-02-10', // Chinese New Year
+  '2025-02-11', // Chinese New Year (replacement)
+  '2025-03-28', // Nuzul Al-Quran
+  '2025-04-10', // Hari Raya Aidilfitri
+  '2025-04-11', // Hari Raya Aidilfitri (replacement)
+  '2025-05-01', // Labour Day
+  '2025-05-22', // Wesak Day
+  '2025-06-03', // Agong\'s Birthday
+  '2025-07-07', // Awal Muharram
+  '2025-07-30', // Nuzul Al-Quran
+  '2025-08-31', // National Day
+  '2025-09-16', // Malaysia Day
+  '2025-10-24', // Deepavali
+  '2025-12-25', // Christmas Day
+  '2026-01-01', // New Year
+  '2026-01-29', // Thaipusam
+  '2026-02-10', // Chinese New Year
+  '2026-02-11', // Chinese New Year (replacement)
+  '2026-02-14', // Federal Territory Day
+  '2026-04-10', // Nuzul Al-Quran
+  '2026-05-01', // Labour Day
+  '2026-05-24', // Hari Raya Aidilfitri
+  '2026-06-03', // Agong\'s Birthday
+  '2026-07-07', // Awal Muharram
+  '2026-08-31', // National Day
+  '2026-09-16', // Malaysia Day
+  '2026-10-29', // Deepavali
+  '2026-12-25', // Christmas Day
+};
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,6 +58,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   String _userRole = 'student';
   List<Map<String, dynamic>> _sessions = [];
   bool _loading = true;
+  String? _profilePicture; // Add profile picture
 
   // Audio player for teachers
   final AudioPlayer tonePlayer = AudioPlayer();
@@ -59,6 +95,13 @@ class _HomePageState extends State<HomePage> with RouteAware {
     super.dispose();
   }
 
+  /// Check if a date is a public holiday
+  bool _isPublicHoliday(DateTime date) {
+    final dateString = DateFormat('yyyy-MM-dd').format(date);
+    return publicHolidays.contains(dateString);
+  }
+
+  /// Generate weekly sessions for today and upcoming days
   Future<void> _fetchUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -72,9 +115,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
         if (docSnap.exists && mounted) {
           final fullName = docSnap['fullName'] ?? 'User';
           final role = docSnap['role'] ?? 'student';
+          final profilePicture = docSnap['profilePicture'] as String?;
           final sessionIds = List<String>.from(docSnap['sessionsId'] ?? []);
 
           List<Map<String, dynamic>> sessions = [];
+          final now = DateTime.now();
+
           for (String sessionId in sessionIds) {
             try {
               final sessionSnap = await FirebaseFirestore.instance
@@ -84,22 +130,23 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
               if (sessionSnap.exists) {
                 final sessionData = sessionSnap.data() as Map<String, dynamic>;
-
-                // Check if session is scheduled for today
                 final startTime = sessionData['start_time'] as Timestamp?;
+
                 if (startTime != null) {
                   final sessionDate = startTime.toDate();
-                  final now = DateTime.now();
 
-                  // Compare only date components (year, month, day)
+                  // Check if session is scheduled for today
                   final isToday =
                       sessionDate.year == now.year &&
                       sessionDate.month == now.month &&
                       sessionDate.day == now.day;
 
-                  // Only add session if it's scheduled for today
+                  // Only add sessions scheduled for today
                   if (isToday) {
-                    // For students, check attendance - always check fresh from Firestore
+                    // Check if today is a public holiday
+                    final isCancelled = _isPublicHoliday(now);
+
+                    // For students, check attendance
                     if (role == 'student') {
                       final attendanceSnap = await FirebaseFirestore.instance
                           .collection('Sessions')
@@ -108,21 +155,24 @@ class _HomePageState extends State<HomePage> with RouteAware {
                           .doc(docId)
                           .get(
                             const GetOptions(source: Source.server),
-                          ); // Force server read
+                          );
 
-                      // Check if attendance document exists AND has a valid 'status' field
-                      final attendanceMarked =
-                          attendanceSnap.exists &&
+                      final attendanceMarked = attendanceSnap.exists &&
                           (attendanceSnap.data()?['status'] != null);
 
                       sessions.add({
                         'id': sessionId,
                         'attendanceMarked': attendanceMarked,
+                        'isCancelled': isCancelled,
                         ...sessionData,
                       });
                     } else {
-                      // For teachers, include session data
-                      sessions.add({'id': sessionId, ...sessionData});
+                      // For teachers
+                      sessions.add({
+                        'id': sessionId,
+                        'isCancelled': isCancelled,
+                        ...sessionData,
+                      });
                     }
                   }
                 }
@@ -136,6 +186,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
             setState(() {
               _userName = fullName;
               _userRole = role.toLowerCase();
+              _profilePicture = profilePicture;
               _sessions = sessions;
               _loading = false;
             });
@@ -362,13 +413,29 @@ class _HomePageState extends State<HomePage> with RouteAware {
               // Top: user info + actions
               Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 24,
+                  InkWell(
+                    borderRadius: BorderRadius.circular(20), 
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ProfilePage(), 
+                        ),
+                      );
+                    },
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: _profilePicture != null && _profilePicture!.isNotEmpty
+                          ? NetworkImage(_profilePicture!)
+                          : null,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      child: _profilePicture == null || _profilePicture!.isEmpty
+                          ? const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 24,
+                            )
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -517,6 +584,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
     final lecturerName = session['lecturerName'] ?? 'Unknown';
     final attendanceMarked = session['attendanceMarked'] ?? false;
+    final isCancelled = session['isCancelled'] ?? false;
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
 
     // Extract and format time
@@ -538,7 +606,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5E6D3),
+        color: isCancelled ? Colors.red.shade100 : const Color(0xFFF5E6D3),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -565,18 +633,20 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       children: [
                         Text(
                           startTimeStr,
-                          style: const TextStyle(
-                            color: Color(0xFF2D3436),
+                          style: TextStyle(
+                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            decoration: isCancelled ? TextDecoration.lineThrough : null,
                           ),
                         ),
                         Text(
                           endTimeStr,
-                          style: const TextStyle(
-                            color: Color(0xFF2D3436),
+                          style: TextStyle(
+                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            decoration: isCancelled ? TextDecoration.lineThrough : null,
                           ),
                         ),
                       ],
@@ -589,7 +659,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B4513),
+                    color: isCancelled ? Colors.red : const Color(0xFF8B4513),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
@@ -605,16 +675,34 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    '$sessionId $sessionName',
-                    style: const TextStyle(
-                      color: Color(0xFF2D3436),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$sessionId $sessionName',
+                        style: TextStyle(
+                          color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          decoration: isCancelled ? TextDecoration.lineThrough : null,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (isCancelled)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Public Holiday - Class Cancelled',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -643,46 +731,47 @@ class _HomePageState extends State<HomePage> with RouteAware {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap:
-                        attendanceMarked ||
-                            !_canMarkAttendance(startTime, endTime)
-                        ? null
-                        : () async {
-                            final isTutorialOrPractical =
-                                sessionType.toLowerCase().contains(
-                                  'tutorial',
-                                ) ||
-                                sessionType.toLowerCase().contains('practical');
+                        (attendanceMarked ||
+                            !_canMarkAttendance(startTime, endTime) ||
+                            isCancelled)
+                            ? null
+                            : () async {
+                              final isTutorialOrPractical =
+                                  sessionType.toLowerCase().contains(
+                                'tutorial',
+                              ) ||
+                                  sessionType.toLowerCase().contains('practical');
 
-                            if (isTutorialOrPractical) {
-                              // Use face verification for Tutorial/Practical
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      FingerprintVerificationPage(
-                                        sessionId: session['id'],
-                                        courseCode: session['courseCode'] ?? '',
-                                        courseName: sessionName,
-                                        sessionType: sessionType,
-                                      ),
-                                ),
-                              );
-                            } else {
-                              // Use ultrasonic for Lecture Class
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MarkAttendancePage(
-                                    sessionId: session['id'],
-                                    sessionName: sessionName,
+                              if (isTutorialOrPractical) {
+                                // Use face verification for Tutorial/Practical
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        FingerprintVerificationPage(
+                                          sessionId: session['id'],
+                                          courseCode: session['courseCode'] ?? '',
+                                          courseName: sessionName,
+                                          sessionType: sessionType,
+                                        ),
                                   ),
-                                ),
-                              );
-                            }
-                            if (mounted) {
-                              await _refreshData();
-                            }
-                          },
+                                );
+                              } else {
+                                // Use ultrasonic for Lecture Class
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MarkAttendancePage(
+                                      sessionId: session['id'],
+                                      sessionName: sessionName,
+                                    ),
+                                  ),
+                                );
+                              }
+                              if (mounted) {
+                                await _refreshData();
+                              }
+                            },
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -692,14 +781,16 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       decoration: BoxDecoration(
                         color:
                             (attendanceMarked ||
-                                !_canMarkAttendance(startTime, endTime))
+                                !_canMarkAttendance(startTime, endTime) ||
+                                isCancelled)
                             ? Colors.grey.withOpacity(0.1)
                             : const Color(0xFF4A9FE8).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color:
                               (attendanceMarked ||
-                                  !_canMarkAttendance(startTime, endTime))
+                                  !_canMarkAttendance(startTime, endTime) ||
+                                  isCancelled)
                               ? Colors.grey.withOpacity(0.3)
                               : const Color(0xFF4A9FE8),
                           width: 1,
@@ -709,25 +800,31 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            attendanceMarked
+                            isCancelled
+                                ? Icons.close
+                                : attendanceMarked
                                 ? Icons.check_circle
                                 : Icons.touch_app,
                             color:
                                 (attendanceMarked ||
-                                    !_canMarkAttendance(startTime, endTime))
+                                    !_canMarkAttendance(startTime, endTime) ||
+                                    isCancelled)
                                 ? const Color(0xFF636E72)
                                 : const Color(0xFF4A9FE8),
                             size: 14,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            attendanceMarked
+                            isCancelled
+                                ? 'Cancelled'
+                                : attendanceMarked
                                 ? 'Attendance Marked'
                                 : 'Mark Attendance',
                             style: TextStyle(
                               color:
                                   (attendanceMarked ||
-                                      !_canMarkAttendance(startTime, endTime))
+                                      !_canMarkAttendance(startTime, endTime) ||
+                                      isCancelled)
                                   ? const Color(0xFF636E72)
                                   : const Color(0xFF4A9FE8),
                               fontSize: 11,
@@ -750,8 +847,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
   Widget _buildTeacherCard(Map<String, dynamic> session) {
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
     final sessionType = session['sessionsType'] ?? 'Class';
+    final isCancelled = session['isCancelled'] ?? false;
 
-    final targetFrequency = session['targetFrequency'] as int?;
     final sessionId = session['id'];
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
     final isBroadcasting = _isBroadcasting[sessionId] ?? false;
@@ -772,12 +869,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
       endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
     }
 
-    final isSessionActive = _canMarkAttendance(startTime, endTime);
+    final isSessionActive = _canMarkAttendance(startTime, endTime) && !isCancelled;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5E6D3),
+        color: isCancelled ? Colors.red.shade100 : const Color(0xFFF5E6D3),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -804,18 +901,20 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       children: [
                         Text(
                           startTimeStr,
-                          style: const TextStyle(
-                            color: Color(0xFF2D3436),
+                          style: TextStyle(
+                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            decoration: isCancelled ? TextDecoration.lineThrough : null,
                           ),
                         ),
                         Text(
                           endTimeStr,
-                          style: const TextStyle(
-                            color: Color(0xFF2D3436),
+                          style: TextStyle(
+                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            decoration: isCancelled ? TextDecoration.lineThrough : null,
                           ),
                         ),
                       ],
@@ -828,7 +927,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B4513),
+                    color: isCancelled ? Colors.red : const Color(0xFF8B4513),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
@@ -844,16 +943,34 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    '$sessionId $sessionName',
-                    style: const TextStyle(
-                      color: Color(0xFF2D3436),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$sessionId $sessionName',
+                        style: TextStyle(
+                          color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          decoration: isCancelled ? TextDecoration.lineThrough : null,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (isCancelled)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Public Holiday - Class Cancelled',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -905,7 +1022,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            isBroadcasting
+                            isCancelled
+                                ? 'Cancelled'
+                                : isBroadcasting
                                 ? 'Stop Broadcast'
                                 : 'Start Broadcast',
                             style: TextStyle(
