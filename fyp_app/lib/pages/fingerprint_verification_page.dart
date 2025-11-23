@@ -126,7 +126,7 @@ class _FingerprintVerificationPageState
                   builder: (context) => LocationVerificationPage(
                     sessionId: widget.sessionId,
                     sessionName: widget.courseName,
-                    detectedFrequency: null, // No frequency for fingerprint
+                    detectedFrequency: 0, // No frequency for fingerprint
                   ),
                 ),
               );
