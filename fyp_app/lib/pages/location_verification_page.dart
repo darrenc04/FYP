@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:location/location.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:io';
 import 'dart:math' as math;
 
 class LocationVerificationPage extends StatefulWidget {
@@ -27,11 +29,27 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
   String? _errorMessage;
   double? _distance;
   final Location _location = Location();
+  final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
   @override
   void initState() {
     super.initState();
     _verifyLocation();
+  }
+
+  Future<String> _getDeviceId() async {
+    try {
+      if (Platform.isAndroid) {
+        final androidInfo = await _deviceInfo.androidInfo;
+        return androidInfo.id; // Unique Android ID
+      } else if (Platform.isIOS) {
+        final iosInfo = await _deviceInfo.iosInfo;
+        return iosInfo.identifierForVendor ?? '';
+      }
+    } catch (e) {
+      debugPrint('Error getting device ID: $e');
+    }
+    return '';
   }
 
   Future<void> _verifyLocation() async {
@@ -89,8 +107,22 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       }
 
       final sessionData = sessionDoc.data();
-      final sessionLat = sessionData?['latitude'] ?? 0.0;
-      final sessionLon = sessionData?['longitude'] ?? 0.0;
+
+      // Retrieve location from GeoPoint
+      double sessionLat = 0.0;
+      double sessionLon = 0.0;
+
+      if (sessionData != null && sessionData['location'] is GeoPoint) {
+        final GeoPoint geoPoint = sessionData['location'] as GeoPoint;
+        sessionLat = geoPoint.latitude;
+        sessionLon = geoPoint.longitude;
+      } else {
+        setState(() {
+          _verifying = false;
+          _errorMessage = 'Session location not configured (Missing GeoPoint)';
+        });
+        return;
+      }
 
       // Calculate distance
       double distance = _calculateDistance(
@@ -155,6 +187,9 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       final studentId = userData?['idNumber'] ?? '';
       final studentName = userData?['fullName'] ?? '';
 
+      // Get device token
+      final deviceToken = await _getDeviceId();
+
       // Create attendance record
       await FirebaseFirestore.instance
           .collection('Sessions')
@@ -167,10 +202,10 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
             'email': user.email!.toLowerCase(),
             'timestamp': FieldValue.serverTimestamp(),
             'detectedFrequency': widget.detectedFrequency,
-            'latitude': location.latitude,
-            'longitude': location.longitude,
+            'location': GeoPoint(location.latitude!, location.longitude!),
             'distance': _distance,
             'status': 'present',
+            'deviceToken': deviceToken,
           });
 
       debugPrint('Attendance saved successfully');
