@@ -10,12 +10,14 @@ class LocationVerificationPage extends StatefulWidget {
   final String sessionId;
   final String sessionName;
   final double detectedFrequency;
+  final double? faceConfidence;
 
   const LocationVerificationPage({
     super.key,
     required this.sessionId,
     required this.sessionName,
     required this.detectedFrequency,
+    this.faceConfidence,
   });
 
   @override
@@ -190,22 +192,33 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       // Get device token
       final deviceToken = await _getDeviceId();
 
-      // Create attendance record
-      await FirebaseFirestore.instance
+      // Get session data for course information
+      final sessionDoc = await FirebaseFirestore.instance
           .collection('Sessions')
           .doc(widget.sessionId)
+          .get();
+
+      final sessionData = sessionDoc.data();
+      final courseName = sessionData?['sessionsName'] ?? 'Unknown';
+
+      // Create attendance record in Attendance collection
+      await FirebaseFirestore.instance
           .collection('Attendance')
-          .doc(user.email!.toLowerCase())
-          .set({
+          .add({
             'studentId': studentId,
             'studentName': studentName,
             'email': user.email!.toLowerCase(),
-            'timestamp': FieldValue.serverTimestamp(),
+            'sessionId': widget.sessionId,
+            'courseName': courseName,
+            'markedAt': FieldValue.serverTimestamp(),
             'detectedFrequency': widget.detectedFrequency,
-            'location': GeoPoint(location.latitude!, location.longitude!),
+            'latitude': location.latitude,
+            'longitude': location.longitude,
             'distance': _distance,
             'status': 'present',
             'deviceToken': deviceToken,
+            'faceConfidence': widget.faceConfidence,
+            'verificationMethod': widget.faceConfidence != null ? 'face' : 'ultrasonic',
           });
 
       debugPrint('Attendance saved successfully');

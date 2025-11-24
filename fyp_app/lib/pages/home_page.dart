@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fyp_app/pages/fingerprint_verification_page.dart';
+import 'package:fyp_app/pages/face_verification_page.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'ultrasonic_page.dart';
 import 'package:intl/intl.dart';
 import 'package:fyp_app/pages/profile_page.dart';
+import 'attendance_history_page.dart';
 
 // Public holidays list (Year, Month, Day)
 final Set<String> publicHolidays = {
@@ -146,17 +148,18 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
                     // For students, check attendance
                     if (role == 'student') {
+                      // Check if attendance was marked in Attendance collection
                       final attendanceSnap = await FirebaseFirestore.instance
-                          .collection('Sessions')
-                          .doc(sessionId)
                           .collection('Attendance')
-                          .doc(docId)
+                          .where('email', isEqualTo: docId)
+                          .where('sessionId', isEqualTo: sessionId)
+                          .limit(1)
                           .get(
                             const GetOptions(source: Source.server),
                           );
 
-                      final attendanceMarked = attendanceSnap.exists &&
-                          (attendanceSnap.data()?['status'] != null);
+                      final attendanceMarked = attendanceSnap.docs.isNotEmpty &&
+                          (attendanceSnap.docs.first.data()['status'] == 'present');
 
                       sessions.add({
                         'id': sessionId,
@@ -533,7 +536,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: IconButton(
-                      onPressed: _refreshData,
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AttendanceHistoryPage(),
+                          ),
+                        );
+                      },
                       padding: EdgeInsets.zero,
                       iconSize: 20,
                       icon: const Icon(
@@ -756,7 +766,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        FingerprintVerificationPage(
+                                        FaceVerificationPage(
                                           sessionId: session['id'],
                                           courseCode: session['courseCode'] ?? '',
                                           courseName: sessionName,

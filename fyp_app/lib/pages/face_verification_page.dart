@@ -38,7 +38,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
   bool _isVerifying = false;
   bool _attendanceMarked = false;
   bool _faceRegistered = false;
-  double _verificationConfidence = 0.0;
+  double _verificationConfidence = 70.0;
   String _verificationStatus = '';
 
   @override
@@ -149,6 +149,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
               sessionId: widget.sessionId,
               sessionName: widget.courseName,
               detectedFrequency: 0, // No frequency for face verification
+              faceConfidence: _verificationConfidence,
             ),
           ),
         );
