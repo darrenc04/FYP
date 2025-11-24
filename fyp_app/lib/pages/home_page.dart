@@ -4,8 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fyp_app/pages/fingerprint_verification_page.dart';
-import 'package:fyp_app/pages/face_verification_page.dart';
+
 import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -13,6 +12,7 @@ import 'ultrasonic_page.dart';
 import 'package:intl/intl.dart';
 import 'package:fyp_app/pages/profile_page.dart';
 import 'attendance_history_page.dart';
+import 'teacher_dashboard_page.dart';
 
 // Public holidays list (Year, Month, Day)
 final Set<String> publicHolidays = {
@@ -138,7 +138,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
                   final sessionDate = startTime.toDate();
 
                   // Check if session is scheduled for the same day of week (recurring weekly)
-                  final sessionDayOfWeek = sessionDate.weekday; // 1=Monday, 7=Sunday
+                  final sessionDayOfWeek =
+                      sessionDate.weekday; // 1=Monday, 7=Sunday
                   final todayDayOfWeek = now.weekday;
 
                   // Only add sessions scheduled for the same day of week
@@ -154,16 +155,29 @@ class _HomePageState extends State<HomePage> with RouteAware {
                           .where('email', isEqualTo: docId)
                           .where('sessionId', isEqualTo: sessionId)
                           .limit(1)
-                          .get(
-                            const GetOptions(source: Source.server),
-                          );
+                          .get(const GetOptions(source: Source.server));
 
-                      final attendanceMarked = attendanceSnap.docs.isNotEmpty &&
-                          (attendanceSnap.docs.first.data()['status'] == 'present');
+                      bool attendanceMarked = false;
+                      bool attendanceRevoked = false;
+                      String revocationReason = '';
+
+                      if (attendanceSnap.docs.isNotEmpty) {
+                        final data = attendanceSnap.docs.first.data();
+                        if (data['status'] == 'present') {
+                          attendanceMarked = true;
+                        } else if (data['status'] == 'absent' &&
+                            data['revokedBy'] == 'teacher') {
+                          attendanceRevoked = true;
+                          revocationReason =
+                              data['revocationReason'] ?? 'No reason provided';
+                        }
+                      }
 
                       sessions.add({
                         'id': sessionId,
                         'attendanceMarked': attendanceMarked,
+                        'attendanceRevoked': attendanceRevoked,
+                        'revocationReason': revocationReason,
                         'isCancelled': isCancelled,
                         ...sessionData,
                       });
@@ -425,18 +439,19 @@ class _HomePageState extends State<HomePage> with RouteAware {
               Row(
                 children: [
                   InkWell(
-                    borderRadius: BorderRadius.circular(20), 
+                    borderRadius: BorderRadius.circular(20),
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const ProfilePage(), 
+                          builder: (context) => const ProfilePage(),
                         ),
                       );
                     },
                     child: CircleAvatar(
                       radius: 20,
-                      backgroundImage: _profilePicture != null && _profilePicture!.isNotEmpty
+                      backgroundImage:
+                          _profilePicture != null && _profilePicture!.isNotEmpty
                           ? NetworkImage(_profilePicture!)
                           : null,
                       backgroundColor: Colors.white.withOpacity(0.2),
@@ -528,6 +543,33 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     ),
                   ),
                   const Spacer(),
+                  if (_userRole == 'teacher')
+                    Container(
+                      margin: const EdgeInsets.only(right: 10),
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF81C3D7),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const TeacherDashboardPage(),
+                            ),
+                          );
+                        },
+                        padding: EdgeInsets.zero,
+                        iconSize: 20,
+                        icon: const Icon(
+                          Icons.dashboard_outlined,
+                          color: Color(0xFF3D4A4F),
+                        ),
+                      ),
+                    ),
                   Container(
                     width: 38,
                     height: 38,
@@ -602,6 +644,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
 
     final lecturerName = session['lecturerName'] ?? 'Unknown';
     final attendanceMarked = session['attendanceMarked'] ?? false;
+    final attendanceRevoked = session['attendanceRevoked'] ?? false;
+    final revocationReason = session['revocationReason'] ?? '';
     final isCancelled = session['isCancelled'] ?? false;
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
 
@@ -620,6 +664,9 @@ class _HomePageState extends State<HomePage> with RouteAware {
       final endDateTime = endTime.toDate();
       endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
     }
+
+    final isSessionActive =
+        _canMarkAttendance(startTime, endTime) && !isCancelled;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -652,19 +699,27 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         Text(
                           startTimeStr,
                           style: TextStyle(
-                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                            color: isCancelled
+                                ? Colors.red
+                                : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            decoration: isCancelled ? TextDecoration.lineThrough : null,
+                            decoration: isCancelled
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                         Text(
                           endTimeStr,
                           style: TextStyle(
-                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                            color: isCancelled
+                                ? Colors.red
+                                : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            decoration: isCancelled ? TextDecoration.lineThrough : null,
+                            decoration: isCancelled
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                       ],
@@ -699,11 +754,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       Text(
                         '$sessionId $sessionName',
                         style: TextStyle(
-                          color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                          color: isCancelled
+                              ? Colors.red
+                              : const Color(0xFF2D3436),
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           height: 1.3,
-                          decoration: isCancelled ? TextDecoration.lineThrough : null,
+                          decoration: isCancelled
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -739,121 +798,100 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     lecturerName,
                     style: const TextStyle(
                       color: Color(0xFF636E72),
-                      fontSize: 11,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap:
-                        (attendanceMarked ||
-                            !_canMarkAttendance(startTime, endTime) ||
-                            isCancelled)
-                            ? null
-                            : () async {
-                              final isTutorialOrPractical =
-                                  sessionType.toLowerCase().contains(
-                                'tutorial',
-                              ) ||
-                                  sessionType.toLowerCase().contains('practical');
-
-                              if (isTutorialOrPractical) {
-                                // Use face verification for Tutorial/Practical
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        FaceVerificationPage(
-                                          sessionId: session['id'],
-                                          courseCode: session['courseCode'] ?? '',
-                                          courseName: sessionName,
-                                          sessionType: sessionType,
-                                        ),
-                                  ),
-                                );
-                              } else {
-                                // Use ultrasonic for Lecture Class
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => MarkAttendancePage(
-                                      sessionId: session['id'],
-                                      sessionName: sessionName,
-                                    ),
-                                  ),
-                                );
-                              }
-                              if (mounted) {
-                                await _refreshData();
-                              }
-                            },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
+                // Action Button
+                if (!isCancelled)
+                  if (attendanceRevoked)
+                    ElevatedButton(
+                      onPressed: () =>
+                          _showRevocationDialog(context, revocationReason),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Absent',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  else if (attendanceMarked)
+                    Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 8,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color:
-                            (attendanceMarked ||
-                                !_canMarkAttendance(startTime, endTime) ||
-                                isCancelled)
-                            ? Colors.grey.withOpacity(0.1)
-                            : const Color(0xFF4A9FE8).withOpacity(0.1),
+                        color: const Color(0xFF00B894).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color:
-                              (attendanceMarked ||
-                                  !_canMarkAttendance(startTime, endTime) ||
-                                  isCancelled)
-                              ? Colors.grey.withOpacity(0.3)
-                              : const Color(0xFF4A9FE8),
+                          color: const Color(0xFF00B894),
                           width: 1,
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isCancelled
-                                ? Icons.close
-                                : attendanceMarked
-                                ? Icons.check_circle
-                                : Icons.touch_app,
-                            color:
-                                (attendanceMarked ||
-                                    !_canMarkAttendance(startTime, endTime) ||
-                                    isCancelled)
-                                ? const Color(0xFF636E72)
-                                : const Color(0xFF4A9FE8),
+                            Icons.check_circle,
+                            color: Color(0xFF00B894),
                             size: 14,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text(
-                            isCancelled
-                                ? 'Cancelled'
-                                : attendanceMarked
-                                ? 'Attendance Marked'
-                                : 'Mark Attendance',
+                            'Marked',
                             style: TextStyle(
-                              color:
-                                  (attendanceMarked ||
-                                      !_canMarkAttendance(startTime, endTime) ||
-                                      isCancelled)
-                                  ? const Color(0xFF636E72)
-                                  : const Color(0xFF4A9FE8),
-                              fontSize: 11,
+                              color: Color(0xFF00B894),
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
                       ),
+                    )
+                  else
+                    ElevatedButton(
+                      onPressed: isSessionActive
+                          ? () => _handleAttendanceMarking(session)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isSessionActive
+                            ? const Color(0xFF4A9FE8)
+                            : Colors.grey.withOpacity(0.3),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Mark Attendance',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
               ],
             ),
           ],
@@ -887,7 +925,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
       endTimeStr = DateFormat('hh:mm a').format(endDateTime).toUpperCase();
     }
 
-    final isSessionActive = _canMarkAttendance(startTime, endTime) && !isCancelled;
+    final isSessionActive =
+        _canMarkAttendance(startTime, endTime) && !isCancelled;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -920,19 +959,27 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         Text(
                           startTimeStr,
                           style: TextStyle(
-                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                            color: isCancelled
+                                ? Colors.red
+                                : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            decoration: isCancelled ? TextDecoration.lineThrough : null,
+                            decoration: isCancelled
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                         Text(
                           endTimeStr,
                           style: TextStyle(
-                            color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                            color: isCancelled
+                                ? Colors.red
+                                : const Color(0xFF2D3436),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            decoration: isCancelled ? TextDecoration.lineThrough : null,
+                            decoration: isCancelled
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                       ],
@@ -967,11 +1014,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       Text(
                         '$sessionId $sessionName',
                         style: TextStyle(
-                          color: isCancelled ? Colors.red : const Color(0xFF2D3436),
+                          color: isCancelled
+                              ? Colors.red
+                              : const Color(0xFF2D3436),
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           height: 1.3,
-                          decoration: isCancelled ? TextDecoration.lineThrough : null,
+                          decoration: isCancelled
+                              ? TextDecoration.lineThrough
+                              : null,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -1064,6 +1115,77 @@ class _HomePageState extends State<HomePage> with RouteAware {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _handleAttendanceMarking(Map<String, dynamic> session) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MarkAttendancePage(
+          sessionId: session['id'],
+          sessionName: session['sessionsName'] ?? 'Unknown Session',
+        ),
+      ),
+    ).then((_) => _refreshData());
+  }
+
+  void _showRevocationDialog(BuildContext context, String reason) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 32),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Attendance Revoked',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your attendance for this session was revoked by the teacher.',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Reason:',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Text(
+                reason.isNotEmpty ? reason : 'No reason provided.',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Close',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }

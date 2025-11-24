@@ -202,24 +202,51 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       final courseName = sessionData?['sessionsName'] ?? 'Unknown';
 
       // Create attendance record in Attendance collection
-      await FirebaseFirestore.instance
+      // Check one last time for existing attendance
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final existingAttendance = await FirebaseFirestore.instance
           .collection('Attendance')
-          .add({
-            'studentId': studentId,
-            'studentName': studentName,
-            'email': user.email!.toLowerCase(),
-            'sessionId': widget.sessionId,
-            'courseName': courseName,
-            'markedAt': FieldValue.serverTimestamp(),
-            'detectedFrequency': widget.detectedFrequency,
-            'latitude': location.latitude,
-            'longitude': location.longitude,
-            'distance': _distance,
-            'status': 'present',
-            'deviceToken': deviceToken,
-            'faceConfidence': widget.faceConfidence,
-            'verificationMethod': widget.faceConfidence != null ? 'face' : 'ultrasonic',
-          });
+          .where('sessionId', isEqualTo: widget.sessionId)
+          .where('email', isEqualTo: user.email!.toLowerCase())
+          .where(
+            'markedAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+          )
+          .where('markedAt', isLessThan: Timestamp.fromDate(endOfDay))
+          .get();
+
+      if (existingAttendance.docs.isNotEmpty) {
+        final doc = existingAttendance.docs.first;
+        if (doc['status'] == 'present') {
+          debugPrint('Attendance already marked');
+          return;
+        } else if (doc['status'] == 'absent' && doc['revokedBy'] == 'teacher') {
+          debugPrint('Attendance revoked by teacher');
+          return;
+        }
+      }
+
+      await FirebaseFirestore.instance.collection('Attendance').add({
+        'studentId': studentId,
+        'studentName': studentName,
+        'email': user.email!.toLowerCase(),
+        'sessionId': widget.sessionId,
+        'courseName': courseName,
+        'markedAt': FieldValue.serverTimestamp(),
+        'detectedFrequency': widget.detectedFrequency,
+        'latitude': location.latitude,
+        'longitude': location.longitude,
+        'distance': _distance,
+        'status': 'present',
+        'deviceToken': deviceToken,
+        'faceConfidence': widget.faceConfidence,
+        'verificationMethod': widget.faceConfidence != null
+            ? 'face'
+            : 'ultrasonic',
+      });
 
       debugPrint('Attendance saved successfully');
     } catch (e) {

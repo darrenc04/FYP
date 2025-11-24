@@ -107,20 +107,43 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
       }
 
       // NEW: Check if this device token already exists in the session attendance
-      final sessionAttendance = await FirebaseFirestore.instance
-          .collection('Sessions')
-          .doc(widget.sessionId)
+      // Also check if the student has ALREADY marked attendance (or was revoked)
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
+      final attendanceQuery = await FirebaseFirestore.instance
           .collection('Attendance')
-          .where('deviceToken', isEqualTo: currentDeviceToken)
+          .where('sessionId', isEqualTo: widget.sessionId)
+          .where('email', isEqualTo: user.email!.toLowerCase())
+          .where(
+            'markedAt',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+          )
+          .where('markedAt', isLessThan: Timestamp.fromDate(endOfDay))
           .get();
 
-      if (sessionAttendance.docs.isNotEmpty) {
-        setState(() {
-          _verifying = false;
-          _errorMessage =
-              'This device has already been used to mark attendance in this session. Each device can only be used once per session.';
-        });
-        return;
+      if (attendanceQuery.docs.isNotEmpty) {
+        final attendanceDoc = attendanceQuery.docs.first;
+        final status = attendanceDoc['status'];
+        final revokedBy = attendanceDoc['revokedBy'];
+        final revocationReason = attendanceDoc['revocationReason'];
+
+        if (status == 'present') {
+          setState(() {
+            _verifying = false;
+            _errorMessage =
+                'You have already marked attendance for this session.';
+          });
+          return;
+        } else if (status == 'absent' && revokedBy == 'teacher') {
+          setState(() {
+            _verifying = false;
+            _errorMessage =
+                'Your attendance was revoked by the teacher.\nReason: $revocationReason';
+          });
+          return;
+        }
       }
 
       // Device verified, proceed to location verification
