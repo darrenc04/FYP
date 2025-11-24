@@ -135,14 +135,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 if (startTime != null) {
                   final sessionDate = startTime.toDate();
 
-                  // Check if session is scheduled for today
-                  final isToday =
-                      sessionDate.year == now.year &&
-                      sessionDate.month == now.month &&
-                      sessionDate.day == now.day;
+                  // Check if session is scheduled for the same day of week (recurring weekly)
+                  final sessionDayOfWeek = sessionDate.weekday; // 1=Monday, 7=Sunday
+                  final todayDayOfWeek = now.weekday;
 
-                  // Only add sessions scheduled for today
-                  if (isToday) {
+                  // Only add sessions scheduled for the same day of week
+                  if (sessionDayOfWeek == todayDayOfWeek) {
                     // Check if today is a public holiday
                     final isCancelled = _isPublicHoliday(now);
 
@@ -232,7 +230,17 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final start = startTime.toDate();
     final end = endTime.toDate();
 
-    return now.isAfter(start) && now.isBefore(end);
+    // Check if today is the same day of week as the session
+    if (now.weekday != start.weekday) {
+      return false;
+    }
+
+    // Check if current time is within the session time window (ignoring the date)
+    final nowTimeOfDay = now.hour * 60 + now.minute; // minutes since midnight
+    final startTimeOfDay = start.hour * 60 + start.minute;
+    final endTimeOfDay = end.hour * 60 + end.minute;
+
+    return nowTimeOfDay >= startTimeOfDay && nowTimeOfDay <= endTimeOfDay;
   }
 
   // Generate audio tone for teacher
