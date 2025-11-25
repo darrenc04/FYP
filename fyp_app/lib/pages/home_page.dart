@@ -1,23 +1,24 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'ultrasonic_page.dart';
 import 'package:intl/intl.dart';
 import 'package:fyp_app/pages/profile_page.dart';
-import 'attendance_history_page.dart';
 import 'attendance_overview_page.dart';
 import 'teacher_dashboard_page.dart';
 import 'fingerprint_verification_page.dart';
+import 'face_verification_page.dart';
 
-// Public holidays list (Year, Month, Day)
-final Set<String> publicHolidays = {
+// Default public holidays list (as fallback if Firestore is unavailable)
+final Set<String> defaultPublicHolidays = {
   '2025-01-25', // Thaipusam
   '2025-02-01', // Federal Territory Day
   '2025-02-10', // Chinese New Year
@@ -48,6 +49,7 @@ final Set<String> publicHolidays = {
   '2026-09-16', // Malaysia Day
   '2026-10-29', // Deepavali
   '2026-12-25', // Christmas Day
+  '2025-11-25'  // testing
 };
 
 class HomePage extends StatefulWidget {
@@ -63,6 +65,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   List<Map<String, dynamic>> _sessions = [];
   bool _loading = true;
   String? _profilePicture; // Add profile picture
+  Set<String> _publicHolidays = defaultPublicHolidays; // Dynamically loaded from Firestore
 
   // Audio player for teachers
   final AudioPlayer tonePlayer = AudioPlayer();
@@ -72,6 +75,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
   @override
   void initState() {
     super.initState();
+    _loadPublicHolidays();
     _fetchUserData();
   }
 
@@ -102,7 +106,78 @@ class _HomePageState extends State<HomePage> with RouteAware {
   /// Check if a date is a public holiday
   bool _isPublicHoliday(DateTime date) {
     final dateString = DateFormat('yyyy-MM-dd').format(date);
-    return publicHolidays.contains(dateString);
+    return _publicHolidays.contains(dateString);
+  }
+
+  /// Fetch public holidays from Calendarific API for Malaysia
+  Future<void> _loadPublicHolidays() async {
+    try {
+      final now = DateTime.now();
+      final year = now.year;
+      
+      // Fetch holidays from Calendarific API for Malaysia
+      final response = await _fetchHolidaysFromApi(year);
+      
+      if (response.isNotEmpty && mounted) {
+        setState(() {
+          _publicHolidays = response.toSet();
+        });
+      } else if (mounted) {
+        // Fallback to default if API returns empty
+        setState(() {
+          _publicHolidays = defaultPublicHolidays;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading public holidays: $e');
+      // Use default on error
+      if (mounted) {
+        setState(() {
+          _publicHolidays = defaultPublicHolidays;
+        });
+      }
+    }
+  }
+
+  /// Fetch holidays from Calendarific API for Malaysia
+  Future<List<String>> _fetchHolidaysFromApi(int year) async {
+    try {
+
+      // const String apiKey = 'SWt92k3yzLVrXcUFdXanvvqbvqokcqao';
+      const String apiKey = 'USE WHEN NEEDED';
+      
+      final url = Uri.parse(
+        'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year'
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) {
+          debugPrint('No holidays data returned from Calendarific API');
+          return [];
+        }
+        
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<dynamic> holidays = data['response']?['holidays'] ?? [];
+        
+        final List<String> holidayDates = [];
+        for (var holiday in holidays) {
+          final date = holiday['date']?['iso'] as String?;
+          if (date != null && date.isNotEmpty) {
+            holidayDates.add(date);
+          }
+        }
+        
+        debugPrint('Loaded ${holidayDates.length} holidays from Calendarific API');
+        return holidayDates;
+      } else {
+        debugPrint('Failed to fetch holidays from Calendarific: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('Error fetching from Calendarific API: $e');
+      return [];
+    }
   }
 
   /// Generate weekly sessions for today and upcoming days
@@ -176,19 +251,19 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       }
 
                       sessions.add({
+                        ...sessionData,
                         'id': sessionId,
                         'attendanceMarked': attendanceMarked,
                         'attendanceRevoked': attendanceRevoked,
                         'revocationReason': revocationReason,
                         'isCancelled': isCancelled,
-                        ...sessionData,
                       });
                     } else {
                       // For teachers
                       sessions.add({
+                        ...sessionData,
                         'id': sessionId,
                         'isCancelled': isCancelled,
-                        ...sessionData,
                       });
                     }
                   }
@@ -229,6 +304,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
       _loading = true;
       _sessions = []; // Clear cached sessions
     });
+    await _loadPublicHolidays();
     await _fetchUserData();
   }
 
@@ -808,92 +884,125 @@ class _HomePageState extends State<HomePage> with RouteAware {
                   ),
                 ),
                 // Action Button
-                if (!isCancelled)
-                  if (attendanceRevoked)
-                    ElevatedButton(
-                      onPressed: () =>
-                          _showRevocationDialog(context, revocationReason),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Absent',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    )
-                  else if (attendanceMarked)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00B894).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFF00B894),
-                          width: 1,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: Color(0xFF00B894),
-                            size: 14,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Marked',
-                            style: TextStyle(
-                              color: Color(0xFF00B894),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    ElevatedButton(
-                      onPressed: isSessionActive
-                          ? () => _handleAttendanceMarking(session)
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isSessionActive
-                            ? const Color(0xFF4A9FE8)
-                            : Colors.grey.withOpacity(0.3),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text(
-                        'Mark Attendance',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                if (isCancelled)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.red,
+                        width: 1,
                       ),
                     ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.event_busy,
+                          color: Colors.red,
+                          size: 14,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Cancelled',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (attendanceRevoked)
+                  ElevatedButton(
+                    onPressed: () =>
+                        _showRevocationDialog(context, revocationReason),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Absent',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else if (attendanceMarked)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00B894).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: const Color(0xFF00B894),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF00B894),
+                          size: 14,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Marked',
+                          style: TextStyle(
+                            color: Color(0xFF00B894),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: isSessionActive
+                        ? () => _handleAttendanceMarking(session)
+                        : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isSessionActive
+                          ? const Color(0xFF4A9FE8)
+                          : Colors.grey.withOpacity(0.3),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Mark Attendance',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],
@@ -1135,7 +1244,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => FingerprintVerificationPage(
+          builder: (context) => FaceVerificationPage(
             sessionId: sessionId,
             courseCode: courseCode,
             courseName: courseName,

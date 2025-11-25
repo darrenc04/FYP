@@ -179,41 +179,7 @@ class _LoginPageState extends State<LoginPage> {
                     },
                     icon: Image.asset('assets/google.png', width: 36, height: 36, errorBuilder: (c,e,s) => const Icon(Icons.g_mobiledata, color: Colors.white, size: 30)),
                   ),
-                  const SizedBox(width: 18),
-                  IconButton(
-                    onPressed: _loading ? null : () async {
-                      // setState(() => _loading = true);
-                      // try {
-                      //   final user = await _authService.signInWithApple();
-                      //   if (user != null) {
-                      //     Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
-                      //   }
-                      // } on MissingPluginException catch (_) {
-                      //   ScaffoldMessenger.of(context).showSnackBar(
-                      //     const SnackBar(content: Text('Apple Sign-In is not available on this platform or the plugin was not registered. Try a full restart (flutter clean; flutter pub get; flutter run).')),
-                      //   );
-                      // } catch (e) {
-                      //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-                      // } finally {
-                      //   if (mounted) setState(() => _loading = false);
-                      // }
-                    },
-                    icon: Image.asset('assets/apple.png', width: 36, height: 36, errorBuilder: (c,e,s) => const Icon(Icons.apple, color: Colors.white, size: 30)),
-                  ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text("Don't have an account, ", style: TextStyle(color: Colors.white70)),
-                    TextButton(onPressed: () {
-                      Navigator.pushNamed(context, '/signup');
-                    }, 
-                    child: const Text('Sign up')),
-                  ],
-                ),
               ),
             ],
           ),
