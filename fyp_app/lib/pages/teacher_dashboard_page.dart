@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 class TeacherDashboardPage extends StatefulWidget {
@@ -14,9 +13,6 @@ class TeacherDashboardPage extends StatefulWidget {
 class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
   bool _loading = true;
   int _totalSessions = 0;
-  int _totalStudents = 0;
-  int _totalPresent = 0;
-  int _totalAbsent = 0;
   List<Map<String, dynamic>> _sessionStats = [];
 
   @override
@@ -32,7 +28,6 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
 
       final teacherEmail = user.email!.toLowerCase();
 
-      // 1. Get Teacher's Sessions
       final userDoc = await FirebaseFirestore.instance
           .collection('Users')
           .doc(teacherEmail)
@@ -44,15 +39,10 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
       }
 
       final sessionIds = List<String>.from(userDoc['sessionsId'] ?? []);
-
       int totalSessionsCount = sessionIds.length;
-      int totalStudentsCount = 0;
-      int totalPresentCount = 0;
-      int totalCalculatedAbsentCount = 0; // Derived absent count
       List<Map<String, dynamic>> sessionStats = [];
 
       for (String sessionId in sessionIds) {
-        // Get Session Details
         final sessionDoc = await FirebaseFirestore.instance
             .collection('Sessions')
             .doc(sessionId)
@@ -62,10 +52,8 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
 
         final sessionData = sessionDoc.data()!;
         final sessionName = sessionData['sessionsName'] ?? 'Unknown';
-        final courseCode =
-            sessionData['courseCode'] ?? sessionId; // Fallback if no code
+        final courseCode = sessionData['courseCode'] ?? sessionId;
 
-        // Get Attendance for this session
         final attendanceQuery = await FirebaseFirestore.instance
             .collection('Attendance')
             .where('sessionId', isEqualTo: sessionId)
@@ -73,7 +61,6 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
 
         int present = 0;
 
-        // Get enrolled students
         final studentsQuery = await FirebaseFirestore.instance
             .collection('Users')
             .where('sessionsId', arrayContains: sessionId)
@@ -81,18 +68,12 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
             .get();
 
         int totalStudents = studentsQuery.docs.length;
-        totalStudentsCount += totalStudents;
 
-        // Count 'present' in attendance records
         present = attendanceQuery.docs
             .where((doc) => doc['status'] == 'present')
             .length;
 
-        totalPresentCount += present;
-
-        // Calculate opportunities and percentage
         double percentage = 0;
-        int calculatedAbsent = 0;
 
         if (totalStudents > 0) {
           final uniqueDates = attendanceQuery.docs.map((d) {
@@ -101,19 +82,13 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
             return DateFormat('yyyy-MM-dd').format(ts.toDate());
           }).toSet();
 
-          // If no classes held yet (no attendance records), assume 1 class for "Week 1" / Initial view
-          // so we show 0% instead of empty/100%
           int classesHeld = uniqueDates.isEmpty ? 1 : uniqueDates.length;
           int totalOpportunities = totalStudents * classesHeld;
 
           if (totalOpportunities > 0) {
             percentage = (present / totalOpportunities) * 100;
-            calculatedAbsent = totalOpportunities - present;
-            if (calculatedAbsent < 0) calculatedAbsent = 0;
           }
         }
-
-        totalCalculatedAbsentCount += calculatedAbsent;
 
         sessionStats.add({
           'name': sessionName,
@@ -128,9 +103,6 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
       if (mounted) {
         setState(() {
           _totalSessions = totalSessionsCount;
-          _totalStudents = totalStudentsCount;
-          _totalPresent = totalPresentCount;
-          _totalAbsent = totalCalculatedAbsentCount; // Use derived absent count
           _sessionStats = sessionStats;
           _loading = false;
         });
@@ -162,7 +134,7 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
             width: 10,
             height: 10,
             decoration: const BoxDecoration(
-              color: Colors.blue, // Notification dot placeholder
+              color: Colors.blue,
               shape: BoxShape.circle,
             ),
           ),
@@ -178,305 +150,250 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                   // Date Display
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                      horizontal: 20,
+                      vertical: 16,
                     ),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.white54),
-                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFF546E7A),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          DateFormat('MMM dd, yyyy').format(DateTime.now()),
+                          DateFormat(
+                            'EEEE, MMM dd, yyyy',
+                          ).format(DateTime.now()),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const Icon(
                           Icons.calendar_today,
-                          color: Colors.white54,
-                          size: 20,
+                          color: Colors.white70,
+                          size: 22,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Top Cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          'Total\nSessions',
-                          '$_totalSessions',
-                          const Color(0xFF81C3D7), // Light Blue
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildStatCard(
-                          'Total\nStudents',
-                          '$_totalStudents',
-                          const Color(0xFFE58B88), // Light Red
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 30),
 
-                  // Pie Chart Section
-                  const Text(
-                    'Overall Attendance for all sessions',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      _buildLegendItem(const Color(0xFF81C3D7), 'Attend'),
-                      const SizedBox(width: 16),
-                      _buildLegendItem(const Color(0xFFE58B88), 'Missed'),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 200,
-                    child: PieChart(
-                      PieChartData(
-                        sectionsSpace: 0,
-                        centerSpaceRadius: 0,
-                        sections: [
-                          PieChartSectionData(
-                            color: const Color(0xFF81C3D7),
-                            value:
-                                _totalPresent.toDouble() == 0 &&
-                                    _totalAbsent == 0
-                                ? 1
-                                : _totalPresent.toDouble(),
-                            title: _totalPresent + _totalAbsent > 0
-                                ? '${((_totalPresent / (_totalPresent + _totalAbsent)) * 100).toStringAsFixed(0)}%'
-                                : '0%',
-                            radius: 100,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3D4A4F),
+                  // Total Sessions Card
+                  Center(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF81C3D7), Color(0xFF5BA3C0)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.school,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Total Sessions',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          PieChartSectionData(
-                            color: const Color(0xFFE58B88),
-                            value: _totalAbsent.toDouble(),
-                            title: _totalAbsent > 0
-                                ? '${((_totalAbsent / (_totalPresent + _totalAbsent)) * 100).toStringAsFixed(0)}%'
-                                : '',
-                            radius: 100,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
+                          const SizedBox(height: 8),
+                          Text(
+                            '$_totalSessions',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 56,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF3D4A4F),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 40),
 
                   // Session Overview List
                   const Text(
-                    'Session Overview',
+                    'My Sessions',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 18,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF546E7A),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        // Header
-                        Padding(
-                          padding: const EdgeInsets.all(12.0),
-                          child: Row(
-                            children: const [
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  'Subjects',
+                  _sessionStats.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(40.0),
+                            child: Column(
+                              children: const [
+                                Icon(
+                                  Icons.inbox_outlined,
+                                  color: Colors.white54,
+                                  size: 64,
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No sessions available',
                                   style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
+                                    color: Colors.white70,
+                                    fontSize: 16,
                                   ),
                                 ),
-                              ),
-                              Expanded(
-                                flex: 1,
-                                child: Text(
-                                  'Attendance\nPercentage',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 1,
-                                child: Text(
-                                  'Present',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const Divider(height: 1, color: Colors.white24),
-                        // List
-                        ListView.separated(
+                        )
+                      : ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _sessionStats.length,
-                          separatorBuilder: (context, index) =>
-                              const Divider(height: 1, color: Colors.white10),
                           itemBuilder: (context, index) {
                             final stat = _sessionStats[index];
-                            return InkWell(
-                              onTap: () {
-                                // Navigate to Manual Attendance / Details
-                                _showManualAttendanceDialog(context, stat);
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 16,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            stat['name'],
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF546E7A),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    _showManualAttendanceDialog(context, stat);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF81C3D7),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
                                             ),
                                           ),
-                                          Text(
-                                            stat['code'],
-                                            style: const TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 10,
-                                            ),
+                                          child: const Icon(
+                                            Icons.book,
+                                            color: Colors.white,
+                                            size: 28,
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        '${stat['percentage'].toStringAsFixed(0)}%',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
                                         ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        '${stat['present']}/${stat['totalStudents']}', // Showing Present / Total Students (approx)
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                stat['name'],
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                stat['code'],
+                                                style: const TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      '${stat['percentage'].toStringAsFixed(0)}% Present',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Text(
+                                                    '${stat['present']}/${stat['totalStudents']} Students',
+                                                    style: const TextStyle(
+                                                      color: Colors.white70,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          color: Colors.white54,
+                                          size: 28,
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             );
                           },
                         ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, Color color) {
-    return Container(
-      height: 140,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLegendItem(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
-      ],
     );
   }
 
@@ -497,7 +414,6 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
         );
       },
     );
-    // Refresh dashboard data after sheet closes
     _fetchDashboardData();
   }
 }

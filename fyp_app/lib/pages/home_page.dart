@@ -584,7 +584,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AttendanceOverviewPage(),
+                            builder: (context) =>
+                                const AttendanceOverviewPage(),
                           ),
                         );
                       },
@@ -1047,74 +1048,76 @@ class _HomePageState extends State<HomePage> with RouteAware {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Broadcast Button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: isSessionActive
-                        ? () => _toggleBroadcast(sessionId)
-                        : null,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSessionActive
-                            ? (isBroadcasting
-                                  ? Colors.red.withOpacity(0.1)
-                                  : const Color(0xFF4A9FE8).withOpacity(0.1))
-                            : Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
+            if (sessionType.toLowerCase().contains('lecture'))
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Broadcast Button
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: isSessionActive
+                          ? () => _toggleBroadcast(sessionId)
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
                           color: isSessionActive
                               ? (isBroadcasting
-                                    ? Colors.red
-                                    : const Color(0xFF4A9FE8))
-                              : Colors.grey.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isBroadcasting ? Icons.stop : Icons.play_arrow,
+                                    ? Colors.red.withOpacity(0.1)
+                                    : const Color(0xFF4A9FE8).withOpacity(0.1))
+                              : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: isSessionActive
                                 ? (isBroadcasting
                                       ? Colors.red
                                       : const Color(0xFF4A9FE8))
-                                : const Color(0xFF636E72),
-                            size: 14,
+                                : Colors.grey.withOpacity(0.3),
+                            width: 1,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isCancelled
-                                ? 'Cancelled'
-                                : isBroadcasting
-                                ? 'Stop Broadcast'
-                                : 'Start Broadcast',
-                            style: TextStyle(
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isBroadcasting ? Icons.stop : Icons.play_arrow,
                               color: isSessionActive
                                   ? (isBroadcasting
                                         ? Colors.red
                                         : const Color(0xFF4A9FE8))
                                   : const Color(0xFF636E72),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              size: 14,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+
+                            Text(
+                              isCancelled
+                                  ? 'Cancelled'
+                                  : isBroadcasting
+                                  ? 'Stop Broadcast'
+                                  : 'Start Broadcast',
+                              style: TextStyle(
+                                color: isSessionActive
+                                    ? (isBroadcasting
+                                          ? Colors.red
+                                          : const Color(0xFF4A9FE8))
+                                    : const Color(0xFF636E72),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -1148,10 +1151,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => MarkAttendancePage(
-            sessionId: sessionId,
-            sessionName: sessionName,
-          ),
+          builder: (context) =>
+              UltrasonicPage(sessionId: sessionId, sessionName: sessionName),
         ),
       ).then((_) => _refreshData());
     }
