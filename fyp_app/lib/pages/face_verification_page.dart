@@ -224,61 +224,7 @@ class _FaceVerificationPageState extends State<FaceVerificationPage> {
     }
   }
 
-  /// Mark attendance in Firestore after successful face verification
-  Future<void> _markAttendance(String userId) async {
-    try {
-      _showInfoSnackBar('Marking attendance...');
 
-      final user = _auth.currentUser;
-      if (user == null) return;
-
-      // Create attendance record
-      final attendanceData = {
-        'studentId': userId,
-        'sessionId': widget.sessionId,
-        'courseCode': widget.courseCode,
-        'courseName': widget.courseName,
-        'sessionType': widget.sessionType,
-        'markedAt': FieldValue.serverTimestamp(),
-        'verificationMethod': 'face', // Face verification
-        'faceConfidence': _verificationConfidence,
-        'status': 'present',
-      };
-
-      // Add to Attendance collection
-      await _firestore.collection('Attendance').add(attendanceData);
-
-      // Also update user's session attendance status
-      await _firestore
-          .collection('Sessions')
-          .doc(widget.sessionId)
-          .collection('Attendance')
-          .doc(userId)
-          .set({
-            'status': 'present',
-            'markedAt': FieldValue.serverTimestamp(),
-            'verificationMethod': 'face',
-            'faceConfidence': _verificationConfidence,
-          }, SetOptions(merge: true));
-
-      setState(() {
-        _attendanceMarked = true;
-        _isVerifying = false;
-      });
-
-      _showSuccessSnackBar(
-        'Attendance marked successfully! Confidence: ${_verificationConfidence.toStringAsFixed(2)}%',
-      );
-
-      // Wait 2 seconds then navigate back
-      await Future.delayed(const Duration(seconds: 2));
-      if (mounted) Navigator.pop(context, true);
-    } catch (e) {
-      print('Error in _markAttendance: $e');
-      _showErrorSnackBar('Error marking attendance: $e');
-      setState(() => _isVerifying = false);
-    }
-  }
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

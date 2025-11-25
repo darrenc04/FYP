@@ -12,7 +12,9 @@ import 'ultrasonic_page.dart';
 import 'package:intl/intl.dart';
 import 'package:fyp_app/pages/profile_page.dart';
 import 'attendance_history_page.dart';
+import 'attendance_overview_page.dart';
 import 'teacher_dashboard_page.dart';
+import 'fingerprint_verification_page.dart';
 
 // Public holidays list (Year, Month, Day)
 final Set<String> publicHolidays = {
@@ -582,7 +584,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AttendanceHistoryPage(),
+                            builder: (context) => const AttendanceOverviewPage(),
                           ),
                         );
                       },
@@ -1120,15 +1122,39 @@ class _HomePageState extends State<HomePage> with RouteAware {
   }
 
   void _handleAttendanceMarking(Map<String, dynamic> session) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MarkAttendancePage(
-          sessionId: session['id'],
-          sessionName: session['sessionsName'] ?? 'Unknown Session',
+    final sessionType = session['sessionsType'] ?? 'Lecture Class';
+    final sessionId = session['id'];
+    final sessionName = session['sessionsName'] ?? 'Unknown Session';
+    final courseCode = session['courseCode'] ?? 'Unknown';
+    final courseName = session['courseName'] ?? 'Unknown Course';
+
+    // Route to different verification pages based on session type
+    if (sessionType.toLowerCase().contains('tutorial') ||
+        sessionType.toLowerCase().contains('practical')) {
+      // Use fingerprint verification for Tutorial and Practical classes
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FingerprintVerificationPage(
+            sessionId: sessionId,
+            courseCode: courseCode,
+            courseName: courseName,
+            sessionType: sessionType,
+          ),
         ),
-      ),
-    ).then((_) => _refreshData());
+      ).then((_) => _refreshData());
+    } else {
+      // Use ultrasonic verification for Lecture classes
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MarkAttendancePage(
+            sessionId: sessionId,
+            sessionName: sessionName,
+          ),
+        ),
+      ).then((_) => _refreshData());
+    }
   }
 
   void _showRevocationDialog(BuildContext context, String reason) {

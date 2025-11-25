@@ -30,6 +30,7 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
   bool _verified = false;
   String? _errorMessage;
   double? _distance;
+  String? _courseName;
   final Location _location = Location();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
@@ -200,6 +201,11 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
 
       final sessionData = sessionDoc.data();
       final courseName = sessionData?['sessionsName'] ?? 'Unknown';
+      
+      // Store course name in state for success dialog
+      setState(() {
+        _courseName = courseName;
+      });
 
       // Create attendance record in Attendance collection
       // Check one last time for existing attendance
@@ -229,6 +235,15 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
         }
       }
 
+      // Determine verification method based on what was used
+      String verificationMethod = 'ultrasonic'; // Default
+      if (widget.faceConfidence != null && widget.faceConfidence! > 0) {
+        verificationMethod = 'face';
+      } else if (widget.detectedFrequency == 0 && widget.faceConfidence == null) {
+        // detectedFrequency is 0 for fingerprint, and faceConfidence is null
+        verificationMethod = 'fingerprint';
+      }
+
       await FirebaseFirestore.instance.collection('Attendance').add({
         'studentId': studentId,
         'studentName': studentName,
@@ -243,9 +258,7 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
         'status': 'present',
         'deviceToken': deviceToken,
         'faceConfidence': widget.faceConfidence,
-        'verificationMethod': widget.faceConfidence != null
-            ? 'face'
-            : 'ultrasonic',
+        'verificationMethod': verificationMethod,
       });
 
       debugPrint('Attendance saved successfully');
@@ -303,11 +316,8 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            Text('Session: ${widget.sessionName}'),
-            const SizedBox(height: 8),
-            Text(
-              'Frequency: ${widget.detectedFrequency.toStringAsFixed(0)} Hz',
-            ),
+            if (_courseName != null)
+              Text('Course: $_courseName'),
             if (_distance != null) ...[
               const SizedBox(height: 8),
               Text('Distance: ${_distance!.toStringAsFixed(1)}m from class'),

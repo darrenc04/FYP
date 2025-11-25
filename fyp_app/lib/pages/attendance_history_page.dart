@@ -4,7 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class AttendanceHistoryPage extends StatefulWidget {
-  const AttendanceHistoryPage({super.key});
+  final String? selectedCourse;
+
+  const AttendanceHistoryPage({
+    super.key,
+    this.selectedCourse,
+  });
 
   @override
   State<AttendanceHistoryPage> createState() => _AttendanceHistoryPageState();
@@ -13,55 +18,15 @@ class AttendanceHistoryPage extends StatefulWidget {
 class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
   late Future<List<Map<String, dynamic>>> _attendanceRecords;
   String _filterCourse = 'All';
-  List<String> _courses = ['All'];
 
   @override
   void initState() {
     super.initState();
-    _loadCourses();
-    _attendanceRecords = _fetchAttendanceHistory();
-  }
-
-  Future<void> _loadCourses() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user?.email != null) {
-        final docId = user!.email!.toLowerCase();
-        final docSnap = await FirebaseFirestore.instance
-            .collection('Users')
-            .doc(docId)
-            .get();
-
-        if (docSnap.exists) {
-          final sessionIds = List<String>.from(docSnap['sessionsId'] ?? []);
-          final courses = <String>{'All'};
-
-          for (String sessionId in sessionIds) {
-            try {
-              final sessionSnap = await FirebaseFirestore.instance
-                  .collection('Sessions')
-                  .doc(sessionId)
-                  .get();
-
-              if (sessionSnap.exists) {
-                final sessionName = sessionSnap['sessionsName'] ?? 'Unknown';
-                courses.add(sessionName);
-              }
-            } catch (e) {
-              debugPrint('Error loading course $sessionId: $e');
-            }
-          }
-
-          if (mounted) {
-            setState(() {
-              _courses = courses.toList();
-            });
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading courses: $e');
+    // Set the filter to the selected course if provided
+    if (widget.selectedCourse != null) {
+      _filterCourse = widget.selectedCourse!;
     }
+    _attendanceRecords = _fetchAttendanceHistory();
   }
 
   Future<List<Map<String, dynamic>>> _fetchAttendanceHistory() async {
@@ -90,6 +55,25 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
           continue;
         }
 
+        // Fetch session details for start and end times and session type
+        Timestamp? startTime;
+        Timestamp? endTime;
+        String sessionType = '';
+        try {
+          final sessionSnap = await FirebaseFirestore.instance
+              .collection('Sessions')
+              .doc(sessionId)
+              .get();
+          
+          if (sessionSnap.exists) {
+            startTime = sessionSnap['start_time'] as Timestamp?;
+            endTime = sessionSnap['end_time'] as Timestamp?;
+            sessionType = sessionSnap['sessionsType'] ?? '';
+          }
+        } catch (e) {
+          debugPrint('Error fetching session details: $e');
+        }
+
         records.add({
           'id': doc.id,
           'sessionId': sessionId,
@@ -97,6 +81,9 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
           'markedAt': markedAt,
           'status': status,
           'verificationMethod': data['verificationMethod'] ?? 'unknown',
+          'startTime': startTime,
+          'endTime': endTime,
+          'sessionType': sessionType,
         });
       }
 
@@ -133,53 +120,9 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
           ),
         ),
       ),
+      
       body: Column(
         children: [
-          // Filter button
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFDDDDDD)),
-                  ),
-                  child: DropdownButton<String>(
-                    value: _filterCourse,
-                    underline: const SizedBox.shrink(),
-                    items: _courses
-                        .map((course) => DropdownMenuItem(
-                              value: course,
-                              child: Text(
-                                course,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF2D3436),
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _filterCourse = value;
-                          _attendanceRecords = _fetchAttendanceHistory();
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  onPressed: _refreshAttendance,
-                )
-              ],
-            ),
-          ),
           // Attendance list
           Expanded(
             child: FutureBuilder<List<Map<String, dynamic>>>(
@@ -222,9 +165,19 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                     itemBuilder: (context, index) {
                       final record = records[index];
                       final markedAt = record['markedAt'] as Timestamp?;
-                      final timeStr = markedAt != null
-                          ? DateFormat('hh:mm a').format(markedAt.toDate())
+                      final startTime = record['startTime'] as Timestamp?;
+                      final endTime = record['endTime'] as Timestamp?;
+                      
+                      final dateStr = markedAt != null
+                          ? DateFormat('dd MMM yyyy').format(markedAt.toDate())
                           : 'N/A';
+                      final startTimeStr = startTime != null
+                          ? DateFormat('hh:mm a').format(startTime.toDate())
+                          : 'N/A';
+                      final endTimeStr = endTime != null
+                          ? DateFormat('hh:mm a').format(endTime.toDate())
+                          : 'N/A';
+                      final sessionType = record['sessionType'] ?? '';
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -243,52 +196,46 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Course name and code
+                            // Date and Session Type on same line
                             Row(
                               children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        record['sessionId']+ ' ' + record['courseName'],
+                                Icon(
+                                  Icons.calendar_today,
+                                  size: 14,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  dateStr,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF636E72),
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (sessionType.isNotEmpty)
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: _getSessionTypeColor(sessionType),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        _getSessionTypeInitial(sessionType),
                                         style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFF2D3436),
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: record['status'] == 'present'
-                                        ? Colors.green.shade100
-                                        : Colors.red.shade100,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    record['status'].toUpperCase(),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: record['status'] == 'present'
-                                          ? Colors.green.shade700
-                                          : Colors.red.shade700,
                                     ),
                                   ),
-                                ),
                               ],
                             ),
-                            const SizedBox(height: 12),
-                            // Time marked and verification method
+                            const SizedBox(height: 8),
+                            // Session time and Verification method on same line
                             Row(
                               children: [
                                 Icon(
@@ -297,25 +244,29 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
                                   color: Colors.grey.shade600,
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  'Time Marked: $timeStr',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF636E72),
+                                Expanded(
+                                  child: Text(
+                                    '$startTimeStr - $endTimeStr',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF636E72),
+                                    ),
                                   ),
                                 ),
-                                const Spacer(),
                                 Icon(
                                   _getVerificationIcon(record['verificationMethod']),
                                   size: 14,
                                   color: Colors.grey.shade600,
                                 ),
                                 const SizedBox(width: 6),
-                                Text(
-                                  _getVerificationLabel(record['verificationMethod']),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF636E72),
+                                Flexible(
+                                  child: Text(
+                                    _getVerificationLabel(record['verificationMethod']),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF636E72),
+                                    ),
+                                    textAlign: TextAlign.end,
                                   ),
                                 ),
                               ],
@@ -332,6 +283,24 @@ class _AttendanceHistoryPageState extends State<AttendanceHistoryPage> {
         ],
       ),
     );
+  }
+
+  String _getSessionTypeInitial(String sessionType) {
+    if (sessionType.toLowerCase().contains('lecture')) {
+      return 'L';
+    } else if (sessionType.toLowerCase().contains('tutorial')) {
+      return 'T';
+    }
+    return 'C';
+  }
+
+  Color _getSessionTypeColor(String sessionType) {
+    if (sessionType.toLowerCase().contains('lecture')) {
+      return const Color(0xFF8B4513); // Brown
+    } else if (sessionType.toLowerCase().contains('tutorial')) {
+      return const Color(0xFF8B4513); // Brown
+    }
+    return const Color(0xFF8B4513); // Brown
   }
 
   IconData _getVerificationIcon(String method) {
