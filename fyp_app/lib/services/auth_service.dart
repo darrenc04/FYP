@@ -161,8 +161,9 @@ class AuthService {
       if (user == null) throw Exception('No user logged in');
 
       final userEmail = user.email!.toLowerCase();
-      final fileName = 'profile_picture_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
+      final fileName =
+          'profile_picture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
       // Upload to Firebase Storage: users/{email}/profile_picture
       final storageRef = FirebaseStorage.instance
           .ref()
@@ -201,6 +202,23 @@ class AuthService {
 
       await user.reauthenticateWithCredential(cred);
       await user.updatePassword(newPassword);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Send Password Reset Email
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      // Check if email exists in Users collection
+      final docId = email.toLowerCase();
+      final docSnap = await _firestore.collection('Users').doc(docId).get();
+
+      if (!docSnap.exists) {
+        throw Exception('Email not found in our records');
+      }
+
+      await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       rethrow;
     }
