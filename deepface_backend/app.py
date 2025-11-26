@@ -9,6 +9,8 @@ import io
 import logging
 from werkzeug.utils import secure_filename
 import tempfile
+import mediapipe as mp
+from scipy.spatial import distance
 
 app = Flask(__name__)
 CORS(app)
@@ -43,6 +45,21 @@ def get_face_embedding(image_path):
         return embedding[0]['embedding']
     except Exception as e:
         logger.error(f"Error extracting embedding: {str(e)}")
+        raise ValueError(f"Could not extract face from image: {str(e)}")
+
+def get_face_embedding_lenient(image_path):
+    """Extract face embedding with lenient detection (fallback)"""
+    try:
+        # Try with lenient detection - allows lower confidence detections
+        embedding = DeepFace.represent(
+            img_path=image_path,
+            model_name='Facenet512',
+            enforce_detection=False,
+            normalization='base'
+        )
+        return embedding[0]['embedding']
+    except Exception as e:
+        logger.error(f"Error extracting embedding (lenient): {str(e)}")
         raise ValueError(f"Could not extract face from image: {str(e)}")
 
 def calculate_cosine_distance(embedding1, embedding2):
@@ -257,6 +274,365 @@ def delete_face(user_id):
         logger.error(f"Error in delete_face: {str(e)}")
         return jsonify({'error': f'Deletion failed: {str(e)}'}), 500
 
+def detect_eye_blinks(video_path):
+    """Detect eye blinks in a video using MediaPipe Face Mesh"""
+    try:
+        # Initialize MediaPipe
+        mp_face_mesh = mp.solutions.face_mesh
+        face_mesh = mp_face_mesh.FaceMesh(
+            static_image_mode=False,
+            max_num_faces=1,
+            refine_landmarks=True,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+        )
+        
+        # Open video
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            raise ValueError("Could not open video file")
+        
+        blink_count = 0
+        frame_count = 0
+        face_detected = False
+        eye_closed_frames = 0
+        EYE_CLOSED_THRESHOLD = 0.15  # Threshold for eye closure
+        MIN_FRAMES_FOR_BLINK = 3  # Minimum frames to count as a blink
+        
+        # Eye landmark indices (for left eye and right eye)
+        LEFT_EYE = [33, 160, 158, 133, 153, 144]
+        RIGHT_EYE = [362, 385, 387, 263, 373, 380]
+        
+        def calculate_eye_ratio(eye_points):
+            """Calculate eye aspect ratio"""
+            # Distance between vertical eye landmarks
+            vertical_1 = distance.euclidean(eye_points[1], eye_points[5])
+            vertical_2 = distance.euclidean(eye_points[2], eye_points[4])
+            
+            # Distance between horizontal eye landmarks
+            horizontal = distance.euclidean(eye_points[0], eye_points[3])
+            
+            # Eye Aspect Ratio
+            eye_ratio = (vertical_1 + vertical_2) / (2.0 * horizontal)
+            return eye_ratio
+        
+        while True:
+            ret, frame = cap.read()
+            
+            if not ret:
+                break
+            
+            frame_count += 1
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            results = face_mesh.process(rgb_frame)
+            
+            if results.multi_face_landmarks:
+                face_detected = True
+                face_landmarks = results.multi_face_landmarks[0]
+                landmarks = [(lm.x, lm.y, lm.z) for lm in face_landmarks.landmark]
+                
+                # Get eye points
+                left_eye = [np.array([landmarks[i][0], landmarks[i][1]]) for i in LEFT_EYE]
+                right_eye = [np.array([landmarks[i][0], landmarks[i][1]]) for i in RIGHT_EYE]
+                
+                # Calculate eye aspect ratios
+                left_eye_ratio = calculate_eye_ratio(left_eye)
+                right_eye_ratio = calculate_eye_ratio(right_eye)
+                
+                # Average ratio
+                avg_eye_ratio = (left_eye_ratio + right_eye_ratio) / 2.0
+                
+                # Detect blink
+                if avg_eye_ratio < EYE_CLOSED_THRESHOLD:
+                    eye_closed_frames += 1
+                else:
+                    if eye_closed_frames >= MIN_FRAMES_FOR_BLINK:
+                        blink_count += 1
+                    eye_closed_frames = 0
+        
+        cap.release()
+        face_mesh.close()
+        
+        if not face_detected:
+            return {
+                'blinks_detected': 0,
+                'confidence': 0.0,
+                'is_live': False,
+                'frame_count': frame_count,
+                'error': 'No face detected in video'
+            }
+        
+        # Calculate confidence based on number of blinks
+        # More blinks = higher confidence
+        confidence = min(100.0, (blink_count / 2.0) * 100) if blink_count > 0 else 0.0
+        
+        logger.info(f"Eye blink detection: {blink_count} blinks detected in {frame_count} frames")
+        
+        return {
+            'blinks_detected': blink_count,
+            'confidence': round(confidence, 2),
+            'is_live': blink_count >= 2,  # At least 2 blinks required for liveness
+            'frame_count': frame_count,
+            'error': None
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in detect_eye_blinks: {str(e)}")
+        return {
+            'blinks_detected': 0,
+            'confidence': 0.0,
+            'is_live': False,
+            'error': str(e)
+        }
+
+@app.route('/detect-eye-blinks', methods=['POST'])
+def detect_eye_blinks_endpoint():
+    """Detect eye blinks in video for liveness detection"""
+    try:
+        # Get user ID from request
+        user_id = request.form.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        
+        # Check if video file is in request
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        file = request.files['video']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Check allowed video formats
+        ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv'}
+        if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in ALLOWED_VIDEO_EXTENSIONS:
+            return jsonify({'error': 'Invalid video format. Allowed: mp4, avi, mov, mkv, flv, wmv'}), 400
+        
+        # Save temporary file
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(temp_path)
+        
+        try:
+            # Detect eye blinks
+            result = detect_eye_blinks(temp_path)
+            
+            if result['error']:
+                return jsonify({
+                    'success': False,
+                    'error': result['error'],
+                    **result
+                }), 400
+            
+            logger.info(f"Eye blink detection for user {user_id}: {result['blinks_detected']} blinks")
+            
+            return jsonify({
+                'success': True,
+                'user_id': user_id,
+                'blinks_detected': result['blinks_detected'],
+                'confidence': result['confidence'],
+                'is_live': result['is_live'],
+                'frame_count': result['frame_count'],
+                'message': 'Liveness verified' if result['is_live'] else 'Not enough eye blinks detected'
+            }), 200
+        
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    
+    except Exception as e:
+        logger.error(f"Error in detect_eye_blinks_endpoint: {str(e)}")
+        return jsonify({'error': f'Eye blink detection failed: {str(e)}'}), 500
+
+@app.route('/verify-face-and-blinks', methods=['POST'])
+def verify_face_and_blinks():
+    """Verify face match AND detect eye blinks for liveness detection"""
+    try:
+        # Get user ID from request
+        user_id = request.form.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        
+        # Check if user has registered face
+        if user_id not in face_embeddings_db:
+            return jsonify({'error': 'User has not registered a face yet'}), 404
+        
+        # Check if video file is in request
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        file = request.files['video']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Check allowed video formats
+        ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv'}
+        if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in ALLOWED_VIDEO_EXTENSIONS:
+            return jsonify({'error': 'Invalid video format. Allowed: mp4, avi, mov, mkv, flv, wmv'}), 400
+        
+        # Save temporary file
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(temp_path)
+        
+        try:
+            # Step 1: Detect eye blinks in video
+            blink_result = detect_eye_blinks(temp_path)
+            
+            if blink_result['error']:
+                return jsonify({
+                    'success': False,
+                    'error': blink_result['error'],
+                    'blinks_detected': 0,
+                    'confidence': 0.0,
+                    'is_live': False
+                }), 400
+            
+            # Step 2: Extract best frame from video for face verification
+            # Try multiple frames to find one with a clear face
+            cap = cv2.VideoCapture(temp_path)
+            best_frame = None
+            frame_count_video = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            # Sample more frames: every 10% of video for better representation
+            frames_to_try = []
+            for i in range(0, 11):  # 0%, 10%, 20%, ..., 100%
+                frame_idx = int((i / 10) * frame_count_video)
+                if frame_idx < frame_count_video:
+                    frames_to_try.append(frame_idx)
+            
+            frame_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_frame.jpg')
+            embeddings_list = []
+            used_lenient_detection = False
+            
+            # Step 1: Try to extract embeddings from multiple frames (strict detection)
+            logger.info(f"Trying to extract faces from {len(frames_to_try)} frames...")
+            
+            for frame_idx in frames_to_try:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                
+                if not ret or frame is None:
+                    continue
+                
+                # Try to extract face embedding from this frame
+                cv2.imwrite(frame_path, frame)
+                
+                try:
+                    embedding = get_face_embedding(frame_path)
+                    embeddings_list.append(embedding)
+                    logger.debug(f"Frame {frame_idx}: Successfully extracted face (strict)")
+                    if best_frame is None:
+                        best_frame = frame
+                except Exception as e:
+                    logger.debug(f"Frame {frame_idx} failed (strict): {str(e)}")
+                    continue
+            
+            # If strict detection got few embeddings, try lenient detection on remaining frames
+            if len(embeddings_list) < 3:
+                logger.info(f"Only {len(embeddings_list)} frames succeeded with strict detection, trying lenient...")
+                used_lenient_detection = True
+                
+                for frame_idx in frames_to_try:
+                    if len(embeddings_list) >= 5:  # Stop after getting 5 embeddings
+                        break
+                        
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                    ret, frame = cap.read()
+                    
+                    if not ret or frame is None:
+                        continue
+                    
+                    cv2.imwrite(frame_path, frame)
+                    
+                    try:
+                        embedding = get_face_embedding_lenient(frame_path)
+                        # Check if this embedding is not already in our list (avoid duplicates)
+                        is_duplicate = False
+                        for existing in embeddings_list:
+                            dist = calculate_cosine_distance(embedding, existing)
+                            if dist < 0.1:  # Very similar embeddings
+                                is_duplicate = True
+                                break
+                        
+                        if not is_duplicate:
+                            embeddings_list.append(embedding)
+                            logger.debug(f"Frame {frame_idx}: Successfully extracted face (lenient)")
+                            if best_frame is None:
+                                best_frame = frame
+                    except Exception as e:
+                        logger.debug(f"Frame {frame_idx} failed (lenient): {str(e)}")
+                        continue
+            
+            cap.release()
+            
+            if len(embeddings_list) == 0 or best_frame is None:
+                return jsonify({
+                    'success': False,
+                    'error': 'Could not detect face in any frame of the video. Please ensure your face is clearly visible.',
+                    'blinks_detected': blink_result['blinks_detected'],
+                    'is_live': blink_result['is_live']
+                }), 400
+            
+            # Average the embeddings for more robust comparison
+            current_embedding = np.mean(embeddings_list, axis=0)
+            logger.info(f"Averaged {len(embeddings_list)} face embeddings for comparison")
+            
+            try:
+                # Get stored embedding
+                stored_embedding = face_embeddings_db[user_id]
+                
+                # Calculate distance
+                distance = calculate_cosine_distance(stored_embedding, current_embedding)
+                
+                # Use adaptive threshold based on detection mode
+                # Strict detection: 0.4 (FacenetNet512 standard)
+                # Lenient detection: 0.6 (more lenient, lower confidence embeddings)
+                threshold = 0.6 if used_lenient_detection else 0.4
+                is_match = bool(distance < threshold)
+                
+                # Confidence: convert distance to percentage (higher is better)
+                # Distance 0 = perfect match (100%), Distance 1 = no match (0%)
+                face_confidence = max(0, (1 - distance) * 100)
+                
+                logger.info(
+                    f"Face + Blink verification for user {user_id}: "
+                    f"distance={distance:.4f}, threshold={threshold}, "
+                    f"detection_mode={'lenient' if used_lenient_detection else 'strict'}, "
+                    f"face_match={is_match}, blinks={blink_result['blinks_detected']}, "
+                    f"confidence={face_confidence:.2f}%"
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'user_id': user_id,
+                    'is_match': is_match,
+                    'face_confidence': round(float(face_confidence), 2),
+                    'distance': round(float(distance), 4),
+                    'blinks_detected': blink_result['blinks_detected'],
+                    'blink_confidence': blink_result['confidence'],
+                    'is_live': blink_result['is_live'],
+                    'frame_count': blink_result['frame_count'],
+                    'message': 'Face and liveness verified' if (is_match and blink_result['is_live']) else 'Verification incomplete'
+                }), 200
+            
+            finally:
+                # Clean up frame file
+                if os.path.exists(frame_path):
+                    os.remove(frame_path)
+        
+        finally:
+            # Clean up temporary video file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+    
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        logger.error(f"Error in verify_face_and_blinks: {str(e)}")
+        return jsonify({'error': f'Verification failed: {str(e)}'}), 500
+
 @app.errorhandler(413)
 def too_large(e):
     """Handle file too large error"""
@@ -269,6 +645,8 @@ if __name__ == '__main__':
     print("  POST /register-face - Register user face")
     print("  POST /verify-face - Verify user face")
     print("  POST /compare-faces - Compare two faces")
+    print("  POST /detect-eye-blinks - Detect eye blinks for liveness detection")
+    print("  POST /verify-face-and-blinks - Verify face AND detect blinks (hybrid)")
     print("  DELETE /delete-face/<user_id> - Delete user face")
     print("\nServer running on http://localhost:5000")
     app.run(host='0.0.0.0', port=5000, debug=True)

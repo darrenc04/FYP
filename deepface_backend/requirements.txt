@@ -7,3 +7,5 @@ pillow>=10.1.0
 python-dotenv>=1.0.0
 firebase-admin>=6.3.0
 requests>=2.32.0
+mediapipe>=0.10.0
+scipy>=1.11.0
