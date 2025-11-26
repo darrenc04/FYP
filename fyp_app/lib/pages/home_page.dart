@@ -9,13 +9,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'ultrasonic_page.dart';
 import 'package:intl/intl.dart';
 import 'package:fyp_app/pages/profile_page.dart';
 import 'attendance_overview_page.dart';
 import 'teacher_dashboard_page.dart';
+import 'ultrasonic_page.dart';
+import 'face_verification_page_v2.dart';
 import 'fingerprint_verification_page.dart';
-import 'face_verification_page.dart';
 
 // Default public holidays list (as fallback if Firestore is unavailable)
 final Set<String> defaultPublicHolidays = {
@@ -1233,7 +1233,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     );
   }
 
-  void _handleAttendanceMarking(Map<String, dynamic> session) {
+  Future<void> _handleAttendanceMarking(Map<String, dynamic> session) async {
     final sessionType = session['sessionsType'] ?? 'Lecture Class';
     final sessionId = session['id'];
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
@@ -1243,18 +1243,71 @@ class _HomePageState extends State<HomePage> with RouteAware {
     // Route to different verification pages based on session type
     if (sessionType.toLowerCase().contains('tutorial') ||
         sessionType.toLowerCase().contains('practical')) {
-      // Use fingerprint verification for Tutorial and Practical classes
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => FaceVerificationPage(
-            sessionId: sessionId,
-            courseCode: courseCode,
-            courseName: courseName,
-            sessionType: sessionType,
+      // For Tutorial and Practical: check which biometric methods are verified
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      try {
+        final docId = user.email!.toLowerCase();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('Users')
+            .doc(docId)
+            .get();
+
+        final isFaceVerified = userDoc.data()?['faceVerified'] ?? false;
+        final isFingerprintVerified =
+            userDoc.data()?['fingerprintVerified'] ?? false;
+
+        // Routing logic:
+        // - If both face and fingerprint verified: use FaceVerificationPageV2
+        // - If only face verified: use FaceVerificationPageV2
+        // - If only fingerprint verified: use FingerprintVerificationPage
+        if (isFaceVerified) {
+          // Use face verification if available
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FaceVerificationPageV2(
+                sessionId: sessionId,
+                courseCode: courseCode,
+                courseName: courseName,
+                sessionType: sessionType,
+              ),
+            ),
+          ).then((_) => _refreshData());
+        } else if (isFingerprintVerified) {
+          // Use fingerprint verification if only fingerprint is verified
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => FingerprintVerificationPage(
+                sessionId: sessionId,
+                courseCode: courseCode,
+                courseName: courseName,
+                sessionType: sessionType,
+              ),
+            ),
+          ).then((_) => _refreshData());
+        } else {
+          // No biometric verified - show error
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Please set up biometric verification in Device Biometric settings'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error checking biometric status: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error loading biometric settings'),
+            backgroundColor: Colors.red,
           ),
-        ),
-      ).then((_) => _refreshData());
+        );
+      }
     } else {
       // Use ultrasonic verification for Lecture classes
       Navigator.push(
