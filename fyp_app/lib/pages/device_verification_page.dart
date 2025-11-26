@@ -146,6 +146,24 @@ class _DeviceVerificationPageState extends State<DeviceVerificationPage> {
         }
       }
 
+      // Check if this device has already been used for this session by ANOTHER user
+      final deviceAttendance = await FirebaseFirestore.instance
+          .collection('Attendance')
+          .where('sessionId', isEqualTo: widget.sessionId)
+          .where('deviceToken', isEqualTo: currentDeviceToken)
+          .get();
+
+      for (var doc in deviceAttendance.docs) {
+        if (doc['email'] != user.email!.toLowerCase()) {
+          setState(() {
+            _verifying = false;
+            _errorMessage =
+                'This device has already been used to mark attendance for another account.';
+          });
+          return;
+        }
+      }
+
       // Device verified, proceed to location verification
       setState(() {
         _verifying = false;

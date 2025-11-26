@@ -1,43 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 
-class AddUserPage extends StatefulWidget {
-  final String? initialRole;
-  const AddUserPage({super.key, this.initialRole});
+class EditUserPage extends StatefulWidget {
+  final Map<String, dynamic> userData;
+
+  const EditUserPage({super.key, required this.userData});
 
   @override
-  State<AddUserPage> createState() => _AddUserPageState();
+  State<EditUserPage> createState() => _EditUserPageState();
 }
 
-class _AddUserPageState extends State<AddUserPage> {
+class _EditUserPageState extends State<EditUserPage> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _idController = TextEditingController();
-  final _phoneController = TextEditingController();
-
-  // Role selection
-  String _role = 'student'; // Default
-  String _program = '';
-
-  // Sessions
-  List<Map<String, dynamic>> _availableSessions = [];
-  List<String> _selectedSessionIds = [];
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _idController;
+  late TextEditingController _phoneController;
+  late TextEditingController _programController;
 
   // Controller for the session search field
   final TextEditingController _sessionSearchController =
       TextEditingController();
+
+  // Role selection (Read-only)
+  late String _role;
+
+  // Sessions
+  List<Map<String, dynamic>> _availableSessions = [];
+  List<String> _selectedSessionIds = [];
 
   bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialRole != null) {
-      _role = widget.initialRole!;
-    }
+    final data = widget.userData;
+    _nameController = TextEditingController(text: data['fullName']);
+    _emailController = TextEditingController(text: data['email']);
+    _idController = TextEditingController(text: data['idNumber']);
+    _phoneController = TextEditingController(text: data['phoneNumber']);
+    _programController = TextEditingController(text: data['program'] ?? '');
+
+    _role = data['role'] ?? 'student';
+    _selectedSessionIds = List<String>.from(data['sessionsId'] ?? []);
+
     _fetchSessions();
   }
 
@@ -72,7 +78,7 @@ class _AddUserPageState extends State<AddUserPage> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF3D4A4F),
         elevation: 0,
-        title: const Text('Add User', style: TextStyle(color: Colors.white)),
+        title: const Text('Edit User', style: TextStyle(color: Colors.white)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -85,57 +91,29 @@ class _AddUserPageState extends State<AddUserPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Role Selection (First)
-              const Text(
-                'Select Role',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _role,
-                dropdownColor: const Color(0xFF4E585D),
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Role'),
-                items: const [
-                  DropdownMenuItem(value: 'student', child: Text('Student')),
-                  DropdownMenuItem(value: 'teacher', child: Text('Teacher')),
-                ],
-                onChanged: (val) {
-                  setState(() {
-                    _role = val!;
-                    // Clear program if switching to teacher
-                    if (_role == 'teacher') {
-                      _program = '';
-                    }
-                  });
-                },
-              ),
+              // 1. Role (Read-only)
+              _buildReadOnlyField('Role', _role.toUpperCase()),
+              const SizedBox(height: 16),
+
+              // 2. Email (Read-only)
+              _buildReadOnlyField('Email', _emailController.text),
               const SizedBox(height: 24),
 
-              // 2. Common Fields
+              // 3. Editable Fields
               _buildTextField(_nameController, 'Full Name'),
-              const SizedBox(height: 16),
-              _buildTextField(_emailController, 'Email', email: true),
               const SizedBox(height: 16),
               _buildTextField(_idController, 'ID Number'),
               const SizedBox(height: 16),
               _buildTextField(_phoneController, 'Phone Number'),
               const SizedBox(height: 16),
 
-              // 3. Student Specific Fields
+              // 4. Student Specific Fields
               if (_role == 'student') ...[
-                _buildTextField(
-                  TextEditingController(text: _program)
-                    ..selection = TextSelection.fromPosition(
-                      TextPosition(offset: _program.length),
-                    ),
-                  'Program',
-                  onChanged: (val) => _program = val,
-                ),
+                _buildTextField(_programController, 'Program'),
                 const SizedBox(height: 16),
               ],
 
-              // 4. Session Selection (Searchable Autocomplete + Chips)
+              // 5. Session Selection (Searchable Autocomplete + Chips)
               const Text(
                 'Assign Sessions',
                 style: TextStyle(color: Colors.white70, fontSize: 14),
@@ -172,33 +150,32 @@ class _AddUserPageState extends State<AddUserPage> {
                         .clear(); // Clear input after selection
                   });
                 },
-                fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                  // Keep our local controller in sync if needed, but mainly we want to clear it
-                  if (_sessionSearchController.text != controller.text) {
-                    // This might cause loops if not careful, but Autocomplete uses its own controller.
-                    // We'll just use the passed controller for the UI.
-                  }
+                fieldViewBuilder:
+                    (context, controller, focusNode, onFieldSubmitted) {
+                      if (_sessionSearchController.text != controller.text) {
+                        // Sync logic if needed
+                      }
 
-                  return TextFormField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Search to add session...')
-                        .copyWith(
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: Colors.white54,
-                          ),
-                          suffixIcon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: Colors.white54,
-                          ),
-                        ),
-                    onFieldSubmitted: (String value) {
-                      onFieldSubmitted();
+                      return TextFormField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: _inputDecoration('Search to add session...')
+                            .copyWith(
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                color: Colors.white54,
+                              ),
+                              suffixIcon: const Icon(
+                                Icons.arrow_drop_down,
+                                color: Colors.white54,
+                              ),
+                            ),
+                        onFieldSubmitted: (String value) {
+                          onFieldSubmitted();
+                        },
+                      );
                     },
-                  );
-                },
                 optionsViewBuilder: (context, onSelected, options) {
                   return Align(
                     alignment: Alignment.topLeft,
@@ -291,7 +268,7 @@ class _AddUserPageState extends State<AddUserPage> {
                   child: _loading
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text(
-                          'Add User',
+                          'Save Changes',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -317,22 +294,34 @@ class _AddUserPageState extends State<AddUserPage> {
         borderRadius: BorderRadius.circular(8),
         borderSide: const BorderSide(color: Colors.transparent),
       ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.transparent),
+      ),
     );
   }
 
   Widget _buildTextField(
     TextEditingController controller,
     String label, {
-    bool email = false,
     Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       style: const TextStyle(color: Colors.white),
       decoration: _inputDecoration(label),
-      keyboardType: email ? TextInputType.emailAddress : TextInputType.text,
       onChanged: onChanged,
       validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+    );
+  }
+
+  Widget _buildReadOnlyField(String label, String value) {
+    return TextFormField(
+      initialValue: value,
+      style: const TextStyle(color: Colors.white54),
+      decoration: _inputDecoration(label),
+      readOnly: true,
+      enabled: false,
     );
   }
 
@@ -341,71 +330,30 @@ class _AddUserPageState extends State<AddUserPage> {
 
     setState(() => _loading = true);
 
-    FirebaseApp? secondaryApp;
-
     try {
       final email = _emailController.text.trim().toLowerCase();
-      final password = _idController.text
-          .trim(); // Default password is ID Number
-      final fullName = _nameController.text.trim();
-      final idNumber = _idController.text.trim();
-      final phoneNumber = _phoneController.text.trim();
 
-      // 1. Create User in Firebase Auth using a secondary app instance
-      // This prevents the current admin from being logged out
-      secondaryApp = await Firebase.initializeApp(
-        name: 'SecondaryApp',
-        options: Firebase.app().options,
-      );
+      Map<String, dynamic> updates = {
+        'fullName': _nameController.text.trim(),
+        'idNumber': _idController.text.trim(),
+        'phoneNumber': _phoneController.text.trim(),
+        'sessionsId': _selectedSessionIds,
+      };
 
-      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
-
-      UserCredential userCredential = await secondaryAuth
-          .createUserWithEmailAndPassword(email: email, password: password);
-
-      final uid = userCredential.user?.uid;
-
-      if (uid != null) {
-        // 2. Create User Document in Firestore (using primary instance)
-        await FirebaseFirestore.instance.collection('Users').doc(email).set({
-          'uid': uid,
-          'email': email,
-          'fullName': fullName,
-          'idNumber': idNumber,
-          'phoneNumber': phoneNumber,
-          'role': _role,
-          'program': _role == 'student' ? _program : null,
-          'sessionsId': _selectedSessionIds,
-          'createdAt': FieldValue.serverTimestamp(),
-          'deviceToken': '',
-          'biometric': '',
-          'profilePicture': '',
-          // Student specific fields initialized
-          if (_role == 'student') ...{
-            'faceVerified': false,
-            'fingerprintVerified': false,
-            'lastDeviceRemoved': '',
-          },
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('User added successfully')),
-          );
-          Navigator.pop(context);
-        }
+      if (_role == 'student') {
+        updates['program'] = _programController.text.trim();
       }
-    } on FirebaseAuthException catch (e) {
-      String message = 'Error creating user';
-      if (e.code == 'email-already-in-use') {
-        message = 'Email is already in use';
-      } else if (e.code == 'weak-password') {
-        message = 'Password is too weak';
-      }
+
+      await FirebaseFirestore.instance
+          .collection('Users')
+          .doc(email)
+          .update(updates);
+
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User updated successfully')),
+        );
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
@@ -414,10 +362,6 @@ class _AddUserPageState extends State<AddUserPage> {
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      // Clean up secondary app
-      if (secondaryApp != null) {
-        await secondaryApp.delete();
-      }
       if (mounted) setState(() => _loading = false);
     }
   }

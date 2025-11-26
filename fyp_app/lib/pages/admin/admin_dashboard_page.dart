@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'add_user_page.dart';
+import 'edit_user_page.dart';
+import 'add_edit_session_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -15,12 +18,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
   late TabController _tabController;
   int _totalTeachers = 0;
   int _totalStudents = 0;
+  int _totalSessions = 0;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      setState(() {}); // Rebuild to update FAB
+    });
     _fetchStats();
   }
 
@@ -38,10 +45,16 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           .count()
           .get();
 
+      final sessionsQuery = await FirebaseFirestore.instance
+          .collection('Sessions')
+          .count()
+          .get();
+
       if (mounted) {
         setState(() {
           _totalTeachers = teachersQuery.count ?? 0;
           _totalStudents = studentsQuery.count ?? 0;
+          _totalSessions = sessionsQuery.count ?? 0;
           _loading = false;
         });
       }
@@ -87,6 +100,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
           tabs: const [
             Tab(text: 'Students'),
             Tab(text: 'Teachers'),
+            Tab(text: 'Sessions'),
           ],
         ),
       ),
@@ -97,16 +111,36 @@ class _AdminDashboardPageState extends State<AdminDashboardPage>
               children: [
                 _StudentTab(totalStudents: _totalStudents),
                 _TeacherTab(totalTeachers: _totalTeachers),
+                _SessionsTab(totalSessions: _totalSessions),
               ],
             ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'add',
         backgroundColor: const Color(0xFF81C3D7),
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddUserPage()),
-          ).then((_) => _fetchStats());
+          if (_tabController.index == 0) {
+            // Students Tab -> Add Student
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AddUserPage(initialRole: 'student'),
+              ),
+            ).then((_) => _fetchStats());
+          } else if (_tabController.index == 1) {
+            // Teachers Tab -> Add Teacher
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AddUserPage(initialRole: 'teacher'),
+              ),
+            ).then((_) => _fetchStats());
+          } else {
+            // Sessions Tab -> Add Session
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AddEditSessionPage()),
+            );
+          }
         },
         child: const Icon(Icons.add),
       ),
@@ -276,9 +310,185 @@ class _TeacherTab extends StatelessWidget {
                         data['email'] ?? '',
                         style: const TextStyle(color: Colors.white70),
                       ),
-                      trailing: Text(
-                        data['idNumber'] ?? '',
-                        style: const TextStyle(color: Colors.white54),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            data['idNumber'] ?? '',
+                            style: const TextStyle(color: Colors.white54),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.white70),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditUserPage(userData: data),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String title, int count, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF546E7A),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: color, width: 4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionsTab extends StatelessWidget {
+  final int totalSessions;
+  const _SessionsTab({required this.totalSessions});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: _buildStatCard(
+            'Total Sessions',
+            totalSessions,
+            const Color(0xFF81C3D7),
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('Sessions')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error: ${snapshot.error}',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              }
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                );
+              }
+
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(
+                  child: Text(
+                    'No sessions found',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  final id = doc.id;
+                  final name = data['sessionsName'] ?? 'Unknown';
+                  final code = data['courseCode'] ?? id;
+                  final isCancelled = data['isCancelled'] == true;
+
+                  Timestamp? startTime = data['start_time'] as Timestamp?;
+                  String timeStr = '';
+                  if (startTime != null) {
+                    timeStr = DateFormat(
+                      'MMM dd, HH:mm',
+                    ).format(startTime.toDate());
+                  }
+
+                  return Card(
+                    color: const Color(0xFF4E585D),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: isCancelled
+                            ? Colors.red.withOpacity(0.2)
+                            : const Color(0xFF81C3D7),
+                        child: Icon(
+                          isCancelled ? Icons.cancel : Icons.class_,
+                          color: isCancelled ? Colors.red : Colors.black,
+                        ),
+                      ),
+                      title: Text(
+                        name,
+                        style: TextStyle(
+                          color: Colors.white,
+                          decoration: isCancelled
+                              ? TextDecoration.lineThrough
+                              : null,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            code,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          if (timeStr.isNotEmpty)
+                            Text(
+                              timeStr,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.white70),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AddEditSessionPage(
+                                sessionData: data,
+                                sessionId: id,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   );
@@ -434,12 +644,28 @@ class _StudentReportCardState extends State<_StudentReportCard> {
               widget.student['idNumber'] ?? '',
               style: const TextStyle(color: Colors.white70),
             ),
-            trailing: IconButton(
-              icon: Icon(
-                _expanded ? Icons.expand_less : Icons.expand_more,
-                color: Colors.white,
-              ),
-              onPressed: _fetchSessionStats,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.white70),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EditUserPage(userData: widget.student),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.white,
+                  ),
+                  onPressed: _fetchSessionStats,
+                ),
+              ],
             ),
           ),
           if (_expanded)

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class TeacherDashboardPage extends StatefulWidget {
   const TeacherDashboardPage({super.key});
@@ -14,11 +16,107 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
   bool _loading = true;
   int _totalSessions = 0;
   List<Map<String, dynamic>> _sessionStats = [];
+  DateTime _selectedDate = DateTime.now();
+  bool _isHolidayDate = false;
+
+  // Default public holidays list (as fallback)
+  final Set<String> defaultPublicHolidays = {
+    '2025-01-25', '2025-02-01', '2025-02-10', '2025-02-11', '2025-03-28',
+    '2025-04-10', '2025-04-11', '2025-05-01', '2025-05-22', '2025-06-03',
+    '2025-07-07', '2025-07-30', '2025-08-31', '2025-09-16', '2025-10-24',
+    '2025-12-25', '2026-01-01', '2026-01-29', '2026-02-10', '2026-02-11',
+    '2026-02-14', '2026-04-10', '2026-05-01', '2026-05-24', '2026-06-03',
+    '2026-07-07', '2026-08-31', '2026-09-16', '2026-10-29', '2026-12-25',
+    '2025-11-25', // testing
+  };
+  Set<String> _publicHolidays = {};
 
   @override
   void initState() {
     super.initState();
+    _publicHolidays = defaultPublicHolidays;
+    _loadPublicHolidays();
     _fetchDashboardData();
+  }
+
+  /// Check if a date is a public holiday
+  bool _isPublicHoliday(DateTime date) {
+    final dateString = DateFormat('yyyy-MM-dd').format(date);
+    return _publicHolidays.contains(dateString);
+  }
+
+  /// Fetch public holidays from Calendarific API for Malaysia
+  Future<void> _loadPublicHolidays() async {
+    try {
+      final year = DateTime.now().year;
+      final response = await _fetchHolidaysFromApi(year);
+      if (response.isNotEmpty && mounted) {
+        setState(() {
+          _publicHolidays = response.toSet();
+        });
+        // Re-fetch dashboard data to apply new holiday filter
+        _fetchDashboardData();
+      }
+    } catch (e) {
+      debugPrint('Error loading public holidays: $e');
+    }
+  }
+
+  Future<List<String>> _fetchHolidaysFromApi(int year) async {
+    try {
+      const String apiKey = 'USE WHEN NEEDED';
+      final url = Uri.parse(
+        'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year',
+      );
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        if (response.body.isEmpty) return [];
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final List<dynamic> holidays = data['response']?['holidays'] ?? [];
+        final List<String> holidayDates = [];
+        for (var holiday in holidays) {
+          final date = holiday['date']?['iso'] as String?;
+          if (date != null && date.isNotEmpty) {
+            holidayDates.add(date);
+          }
+        }
+        return holidayDates;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF81C3D7),
+              onPrimary: Colors.black,
+              surface: Color(0xFF3D4A4F),
+              onSurface: Colors.white,
+            ),
+            dialogBackgroundColor: const Color(0xFF3D4A4F),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _loading = true;
+      });
+      _fetchDashboardData();
+    }
   }
 
   Future<void> _fetchDashboardData() async {
@@ -38,6 +136,22 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
         return;
       }
 
+      // Check for holiday first
+      bool isHoliday = _isPublicHoliday(_selectedDate);
+
+      if (isHoliday) {
+        if (mounted) {
+          setState(() {
+            _isHolidayDate = true;
+            _sessionStats = [];
+            _totalSessions = 0;
+            _loading = false;
+          });
+        }
+        return;
+      }
+
+      // If not holiday, fetch sessions
       final sessionIds = List<String>.from(userDoc['sessionsId'] ?? []);
       int totalSessionsCount = sessionIds.length;
       List<Map<String, dynamic>> sessionStats = [];
@@ -51,6 +165,18 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
         if (!sessionDoc.exists) continue;
 
         final sessionData = sessionDoc.data()!;
+
+        // Filter by weekday
+        final startTime = sessionData['start_time'] as Timestamp?;
+        bool isCancelled = sessionData['isCancelled'] == true;
+
+        if (startTime != null) {
+          final sessionDate = startTime.toDate();
+          if (sessionDate.weekday != _selectedDate.weekday) {
+            continue;
+          }
+        }
+
         final sessionName = sessionData['sessionsName'] ?? 'Unknown';
         final courseCode = sessionData['courseCode'] ?? sessionId;
 
@@ -69,25 +195,24 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
 
         int totalStudents = studentsQuery.docs.length;
 
-        present = attendanceQuery.docs
-            .where((doc) => doc['status'] == 'present')
-            .length;
+        final startOfDay = DateTime(
+          _selectedDate.year,
+          _selectedDate.month,
+          _selectedDate.day,
+        );
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+
+        present = attendanceQuery.docs.where((doc) {
+          final markedAt = (doc['markedAt'] as Timestamp?)?.toDate();
+          return markedAt != null &&
+              markedAt.isAfter(startOfDay) &&
+              markedAt.isBefore(endOfDay) &&
+              doc['status'] == 'present';
+        }).length;
 
         double percentage = 0;
-
         if (totalStudents > 0) {
-          final uniqueDates = attendanceQuery.docs.map((d) {
-            final ts = d['markedAt'] as Timestamp?;
-            if (ts == null) return '';
-            return DateFormat('yyyy-MM-dd').format(ts.toDate());
-          }).toSet();
-
-          int classesHeld = uniqueDates.isEmpty ? 1 : uniqueDates.length;
-          int totalOpportunities = totalStudents * classesHeld;
-
-          if (totalOpportunities > 0) {
-            percentage = (present / totalOpportunities) * 100;
-          }
+          percentage = (present / totalStudents) * 100;
         }
 
         sessionStats.add({
@@ -97,14 +222,16 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
           'present': present,
           'totalStudents': totalStudents,
           'sessionId': sessionId,
+          'isCancelled': isCancelled,
         });
       }
 
       if (mounted) {
         setState(() {
-          _totalSessions = totalSessionsCount;
+          _totalSessions = sessionStats.length;
           _sessionStats = sessionStats;
           _loading = false;
+          _isHolidayDate = false;
         });
       }
     } catch (e) {
@@ -148,41 +275,45 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Date Display
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF546E7A),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          DateFormat(
-                            'EEEE, MMM dd, yyyy',
-                          ).format(DateTime.now()),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                  InkWell(
+                    onTap: () => _selectDate(context),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF546E7A),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           ),
-                        ),
-                        const Icon(
-                          Icons.calendar_today,
-                          color: Colors.white70,
-                          size: 22,
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            DateFormat(
+                              'EEEE, MMM dd, yyyy',
+                            ).format(_selectedDate),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.calendar_today,
+                            color: Colors.white70,
+                            size: 22,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -248,7 +379,39 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _sessionStats.isEmpty
+                  _isHolidayDate
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(40.0),
+                            child: Column(
+                              children: const [
+                                Icon(
+                                  Icons.celebration,
+                                  color: Colors.white54,
+                                  size: 64,
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No classes for today',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Public Holiday',
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : _sessionStats.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(40.0),
@@ -277,10 +440,14 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                           itemCount: _sessionStats.length,
                           itemBuilder: (context, index) {
                             final stat = _sessionStats[index];
+                            final isCancelled = stat['isCancelled'] == true;
+
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF546E7A),
+                                color: isCancelled
+                                    ? Colors.red.withOpacity(0.2)
+                                    : const Color(0xFF546E7A),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
@@ -289,6 +456,11 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                                     offset: const Offset(0, 4),
                                   ),
                                 ],
+                                border: isCancelled
+                                    ? Border.all(
+                                        color: Colors.red.withOpacity(0.5),
+                                      )
+                                    : null,
                               ),
                               child: Material(
                                 color: Colors.transparent,
@@ -324,12 +496,36 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
                                             children: [
                                               Text(
                                                 stat['name'],
-                                                style: const TextStyle(
-                                                  color: Colors.white,
+                                                style: TextStyle(
+                                                  color: isCancelled
+                                                      ? Colors.redAccent
+                                                      : Colors.white,
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
+                                                  decoration: isCancelled
+                                                      ? TextDecoration
+                                                            .lineThrough
+                                                      : null,
                                                 ),
                                               ),
+                                              if (isCancelled)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        top: 4,
+                                                      ),
+                                                  child: Text(
+                                                    'Session Cancelled',
+                                                    style: TextStyle(
+                                                      color: Colors
+                                                          .redAccent
+                                                          .shade100,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
                                               const SizedBox(height: 4),
                                               Text(
                                                 stat['code'],
@@ -411,6 +607,7 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
         return _ManualAttendanceSheet(
           sessionId: sessionStat['sessionId'],
           sessionName: sessionStat['name'],
+          selectedDate: _selectedDate,
         );
       },
     );
@@ -421,10 +618,12 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
 class _ManualAttendanceSheet extends StatefulWidget {
   final String sessionId;
   final String sessionName;
+  final DateTime selectedDate;
 
   const _ManualAttendanceSheet({
     required this.sessionId,
     required this.sessionName,
+    required this.selectedDate,
   });
 
   @override
@@ -450,11 +649,14 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
           .where('role', isEqualTo: 'student')
           .get();
 
-      // 2. Fetch today's attendance for this session
+      // 2. Fetch attendance for the selected date
       // We fetch all attendance for this session and filter in memory to avoid
       // missing index issues (composite index on sessionId + markedAt).
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
+      final startOfDay = DateTime(
+        widget.selectedDate.year,
+        widget.selectedDate.month,
+        widget.selectedDate.day,
+      );
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
       final attendanceQuery = await FirebaseFirestore.instance
@@ -522,8 +724,11 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
 
   Future<void> _markPresent(String studentEmail, String studentName) async {
     try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
+      final startOfDay = DateTime(
+        widget.selectedDate.year,
+        widget.selectedDate.month,
+        widget.selectedDate.day,
+      );
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
       // Check if there's already an attendance record for today
@@ -552,7 +757,9 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
             .doc(todayRecord.id)
             .update({
               'status': 'present',
-              'markedAt': Timestamp.fromDate(now),
+              'markedAt': Timestamp.fromDate(
+                startOfDay.add(const Duration(hours: 12)),
+              ), // Set to noon of selected day
               'verificationMethod': 'manual',
               'revokedBy': FieldValue.delete(),
               'revokedAt': FieldValue.delete(),
@@ -565,7 +772,9 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
           'courseName': widget.sessionName,
           'email': studentEmail,
           'status': 'present',
-          'markedAt': Timestamp.fromDate(now),
+          'markedAt': Timestamp.fromDate(
+            startOfDay.add(const Duration(hours: 12)),
+          ), // Set to noon of selected day
           'verificationMethod': 'manual',
           'deviceToken': '', // N/A
           'distance': 0,
@@ -634,7 +843,7 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
                 }
                 Navigator.pop(context, true);
               },
-              child: const Text('Revoke'),
+              child: const Text('Confirm'),
             ),
           ],
         );

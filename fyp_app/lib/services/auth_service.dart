@@ -9,46 +9,6 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Register with email and password (for sign-up)
-  Future<User?> registerWithEmail(
-    String email,
-    String password,
-    String phoneNumber,
-    String fullName,
-    String idNumber,
-    String program,
-  ) async {
-    try {
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final User? user = result.user;
-      if (user != null) {
-        final String docId = user.email!.toLowerCase();
-        final docRef = _firestore.collection('Users').doc(docId);
-
-        await docRef.set({
-          'uid': user.uid,
-          'email': user.email,
-          'fullName': fullName,
-          'idNumber': idNumber,
-          'program': program,
-          'phoneNumber': phoneNumber,
-          'sessionsId': [],
-          'deviceToken': '',
-          'biometric': '',
-          'lastDeviceRemoved': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-      return result.user;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   // Sign in with email and password
   Future<User?> signInWithEmail(String email, String password) async {
     try {
@@ -56,26 +16,6 @@ class AuthService {
         email: email,
         password: password,
       );
-
-      // save user info if it doesn't already exists
-      final User? user = result.user;
-
-      if (user != null) {
-        final String docId = user.email!.toLowerCase();
-        final docRef = _firestore.collection('Users').doc(docId);
-        final docSnap = await docRef.get();
-
-        if (!docSnap.exists) {
-          await docRef.set({
-            'uid': user.uid,
-            'email': user.email,
-            'deviceToken': '',
-            'biometric': '',
-            'createdAt': FieldValue.serverTimestamp(),
-            'role': 'student',
-          });
-        }
-      }
       return result.user;
     } catch (e) {
       rethrow;

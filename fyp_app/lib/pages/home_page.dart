@@ -49,7 +49,7 @@ final Set<String> defaultPublicHolidays = {
   '2026-09-16', // Malaysia Day
   '2026-10-29', // Deepavali
   '2026-12-25', // Christmas Day
-  '2025-11-25'  // testing
+  '2025-11-25', // testing
 };
 
 class HomePage extends StatefulWidget {
@@ -65,7 +65,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
   List<Map<String, dynamic>> _sessions = [];
   bool _loading = true;
   String? _profilePicture; // Add profile picture
-  Set<String> _publicHolidays = defaultPublicHolidays; // Dynamically loaded from Firestore
+  Set<String> _publicHolidays =
+      defaultPublicHolidays; // Dynamically loaded from Firestore
 
   // Audio player for teachers
   final AudioPlayer tonePlayer = AudioPlayer();
@@ -114,10 +115,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
     try {
       final now = DateTime.now();
       final year = now.year;
-      
+
       // Fetch holidays from Calendarific API for Malaysia
       final response = await _fetchHolidaysFromApi(year);
-      
+
       if (response.isNotEmpty && mounted) {
         setState(() {
           _publicHolidays = response.toSet();
@@ -142,12 +143,11 @@ class _HomePageState extends State<HomePage> with RouteAware {
   /// Fetch holidays from Calendarific API for Malaysia
   Future<List<String>> _fetchHolidaysFromApi(int year) async {
     try {
-
       // const String apiKey = 'SWt92k3yzLVrXcUFdXanvvqbvqokcqao';
       const String apiKey = 'USE WHEN NEEDED';
-      
+
       final url = Uri.parse(
-        'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year'
+        'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year',
       );
       final response = await http.get(url).timeout(const Duration(seconds: 10));
 
@@ -156,10 +156,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
           debugPrint('No holidays data returned from Calendarific API');
           return [];
         }
-        
+
         final Map<String, dynamic> data = jsonDecode(response.body);
         final List<dynamic> holidays = data['response']?['holidays'] ?? [];
-        
+
         final List<String> holidayDates = [];
         for (var holiday in holidays) {
           final date = holiday['date']?['iso'] as String?;
@@ -167,11 +167,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
             holidayDates.add(date);
           }
         }
-        
-        debugPrint('Loaded ${holidayDates.length} holidays from Calendarific API');
+
+        debugPrint(
+          'Loaded ${holidayDates.length} holidays from Calendarific API',
+        );
         return holidayDates;
       } else {
-        debugPrint('Failed to fetch holidays from Calendarific: ${response.statusCode}');
+        debugPrint(
+          'Failed to fetch holidays from Calendarific: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -894,19 +898,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.red,
-                        width: 1,
-                      ),
+                      border: Border.all(color: Colors.red, width: 1),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.event_busy,
-                          color: Colors.red,
-                          size: 14,
-                        ),
+                        Icon(Icons.event_busy, color: Colors.red, size: 14),
                         SizedBox(width: 4),
                         Text(
                           'Cancelled',
@@ -1293,7 +1290,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                  'Please set up biometric verification in Device Biometric settings'),
+                'Please set up biometric verification in Device Biometric settings',
+              ),
               backgroundColor: Colors.red,
               duration: Duration(seconds: 3),
             ),
