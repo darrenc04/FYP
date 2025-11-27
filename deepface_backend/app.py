@@ -131,6 +131,160 @@ def register_face():
         logger.error(f"Error in register_face: {str(e)}")
         return jsonify({'error': f'Registration failed: {str(e)}'}), 500
 
+@app.route('/register-face-video', methods=['POST'])
+def register_face_video():
+    """Register a user's face using video for better embedding quality"""
+    try:
+        # Get user ID from request
+        user_id = request.form.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'user_id is required'}), 400
+        
+        # Check if video file is in request
+        if 'video' not in request.files:
+            return jsonify({'error': 'No video file provided'}), 400
+        
+        file = request.files['video']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Check allowed video formats
+        ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv'}
+        if '.' not in file.filename or file.filename.rsplit('.', 1)[1].lower() not in ALLOWED_VIDEO_EXTENSIONS:
+            return jsonify({'error': 'Invalid video format. Allowed: mp4, avi, mov, mkv, flv, wmv'}), 400
+        
+        # Save temporary file
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
+        file.save(temp_path)
+        
+        try:
+            # Extract and average multiple frames from video for robust embedding
+            cap = cv2.VideoCapture(temp_path)
+            frame_count_video = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            
+            if frame_count_video < 1:
+                return jsonify({'error': 'Could not read video file'}), 400
+            
+            # Extract frames at regular intervals (0%, 10%, 20%, ..., 100%)
+            frames_to_extract = []
+            for i in range(0, 11):
+                frame_idx = int((i / 10) * frame_count_video)
+                if frame_idx < frame_count_video:
+                    frames_to_extract.append(frame_idx)
+            
+            extracted_frames = []
+            for frame_idx in frames_to_extract:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if ret and frame is not None:
+                    extracted_frames.append(frame)
+            
+            cap.release()
+            
+            if len(extracted_frames) == 0:
+                return jsonify({'error': 'Could not extract frames from video'}), 400
+            
+            logger.info(f"Extracted {len(extracted_frames)} frames for registration")
+            
+            # Process frames and collect embeddings
+            frame_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_reg_frame.jpg')
+            embeddings_list = []
+            
+            # Try strict detection first
+            logger.info("Attempting strict face detection on registration frames...")
+            for idx, frame in enumerate(extracted_frames):
+                # Enhance frame quality
+                enhanced_frame = cv2.bilateralFilter(frame, 9, 75, 75)
+                
+                # CLAHE for contrast improvement
+                lab = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2LAB)
+                l, a, b = cv2.split(lab)
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                l = clahe.apply(l)
+                enhanced_frame = cv2.merge([l, a, b])
+                enhanced_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_LAB2BGR)
+                
+                # Save with high quality
+                cv2.imwrite(frame_path, enhanced_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+                
+                try:
+                    embedding = get_face_embedding(frame_path)
+                    embeddings_list.append(embedding)
+                    logger.debug(f"Registration frame {idx}: Successfully extracted face (strict)")
+                except Exception as e:
+                    logger.debug(f"Registration frame {idx} failed (strict): {str(e)}")
+                    continue
+            
+            # If strict detection insufficient, try lenient
+            if len(embeddings_list) < 3:
+                logger.info(f"Only {len(embeddings_list)} frames with strict detection, trying lenient...")
+                
+                for idx, frame in enumerate(extracted_frames):
+                    if len(embeddings_list) >= 8:
+                        break
+                    
+                    enhanced_frame = cv2.bilateralFilter(frame, 9, 75, 75)
+                    lab = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2LAB)
+                    l, a, b = cv2.split(lab)
+                    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                    l = clahe.apply(l)
+                    enhanced_frame = cv2.merge([l, a, b])
+                    enhanced_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_LAB2BGR)
+                    
+                    cv2.imwrite(frame_path, enhanced_frame, [cv2.IMWRITE_JPEG_QUALITY, 100])
+                    
+                    try:
+                        embedding = get_face_embedding_lenient(frame_path)
+                        
+                        # Avoid duplicates
+                        is_duplicate = False
+                        for existing in embeddings_list:
+                            dist = calculate_cosine_distance(embedding, existing)
+                            if dist < 0.1:
+                                is_duplicate = True
+                                break
+                        
+                        if not is_duplicate:
+                            embeddings_list.append(embedding)
+                            logger.debug(f"Registration frame {idx}: Successfully extracted face (lenient)")
+                    except Exception as e:
+                        logger.debug(f"Registration frame {idx} failed (lenient): {str(e)}")
+                        continue
+            
+            if len(embeddings_list) == 0:
+                return jsonify({
+                    'error': 'Could not detect face in any frame of the video. Please ensure your face is clearly visible.'
+                }), 400
+            
+            # Average all embeddings for robust registration
+            registration_embedding = np.mean(embeddings_list, axis=0)
+            logger.info(f"Averaged {len(embeddings_list)} embeddings for registration")
+            
+            # Store embedding
+            face_embeddings_db[user_id] = registration_embedding
+            
+            logger.info(f"Face video registered for user: {user_id}, using {len(embeddings_list)} frames")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Face registered successfully from video',
+                'user_id': user_id,
+                'frames_used': len(embeddings_list),
+                'embedding_size': len(registration_embedding)
+            }), 200
+        
+        finally:
+            # Clean up temporary files
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            if os.path.exists(frame_path):
+                os.remove(frame_path)
+    
+    except Exception as e:
+        logger.error(f"Error in register_face_video: {str(e)}")
+        return jsonify({'error': f'Registration failed: {str(e)}'}), 500
+
 @app.route('/verify-face', methods=['POST'])
 def verify_face():
     """Verify a user's face against their registered face"""
@@ -642,7 +796,8 @@ if __name__ == '__main__':
     print("Starting DeepFace Backend Server...")
     print("Available endpoints:")
     print("  GET  /health - Health check")
-    print("  POST /register-face - Register user face")
+    print("  POST /register-face - Register user face (image)")
+    print("  POST /register-face-video - Register user face (video with multi-frame averaging)")
     print("  POST /verify-face - Verify user face")
     print("  POST /compare-faces - Compare two faces")
     print("  POST /detect-eye-blinks - Detect eye blinks for liveness detection")

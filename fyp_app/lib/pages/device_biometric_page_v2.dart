@@ -307,14 +307,15 @@ class _DeviceBiometricPageV2State extends State<DeviceBiometricPageV2> {
         return;
       }
 
-      // Capture image from camera
-      final XFile? image = await _imagePicker.pickImage(
+      // Capture video from camera for better face registration
+      final XFile? video = await _imagePicker.pickVideo(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
+        maxDuration: const Duration(seconds: 10),
       );
 
-      if (image == null) {
-        _showErrorSnackBar('No image captured');
+      if (video == null) {
+        _showErrorSnackBar('No video captured');
         setState(() => _isVerifyingFace = false);
         return;
       }
@@ -325,121 +326,81 @@ class _DeviceBiometricPageV2State extends State<DeviceBiometricPageV2> {
       final isFirstRegistration = !(userDoc.data()?['faceVerified'] ?? false);
 
       if (isFirstRegistration) {
-        // Register face
-        await _registerFace(userId, image);
+        // Register face using video
+        await _registerFaceVideo(userId, video);
       } else {
-        // Verify face
-        await _verifyFaceAgainstRegistered(userId, image);
+        // For verification, still use video but call verify endpoint
+        _showErrorSnackBar('Face already registered. Please use a different account.');
+        setState(() => _isVerifyingFace = false);
       }
     } catch (e) {
       print('Error in _verifyFaceIdentity: $e');
-      _showErrorSnackBar('Error during face verification: $e');
+      _showErrorSnackBar('Error during face registration: $e');
       if (mounted) setState(() => _isVerifyingFace = false);
     }
   }
 
-  Future<void> _registerFace(String userId, XFile image) async {
+  Future<void> _registerFaceVideo(String userId, XFile video) async {
     try {
-      _showInfoSnackBar('Registering your face...');
+      _showInfoSnackBar('Registering your face with video (extracting multiple frames)...');
 
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$DEEPFACE_API_URL/register-face'),
+        Uri.parse('$DEEPFACE_API_URL/register-face-video'),
       );
 
       request.fields['user_id'] = userId;
       request.files.add(
-        await http.MultipartFile.fromPath('image', image.path),
+        await http.MultipartFile.fromPath('video', video.path),
       );
 
       final response =
-          await request.send().timeout(const Duration(seconds: 30));
+          await request.send().timeout(const Duration(seconds: 60));
       final responseBody = await response.stream.bytesToString();
 
-      print('Register response status: ${response.statusCode}');
-      print('Register response body: $responseBody');
+      print('Register video response status: ${response.statusCode}');
+      print('Register video response body: $responseBody');
 
       if (response.statusCode == 200) {
-        // Update Firestore
-        final docId = userId;
-        await _firestore.collection('Users').doc(docId).update({
-          'faceVerified': true,
-          'faceRegistrationDate': FieldValue.serverTimestamp(),
-        });
-
-        if (mounted) {
-          setState(() {
-            _isFaceVerified = true;
-            _isVerifyingFace = false;
+        try {
+          final jsonData = jsonDecode(responseBody);
+          final framesUsed = jsonData['frames_used'] as int? ?? 0;
+          
+          // Update Firestore
+          final docId = userId;
+          await _firestore.collection('Users').doc(docId).update({
+            'faceVerified': true,
+            'faceRegistrationDate': FieldValue.serverTimestamp(),
+            'registrationMethod': 'video_multi_frame',
+            'registrationFramesUsed': framesUsed,
           });
-        }
 
-        _showSuccessSnackBar('Face registered successfully!');
+          if (mounted) {
+            setState(() {
+              _isFaceVerified = true;
+              _isVerifyingFace = false;
+            });
+          }
+
+          _showSuccessSnackBar(
+              'Face registered successfully!\nUsed $framesUsed frames for better accuracy.');
+        } catch (e) {
+          _showErrorSnackBar('Error parsing response: $e');
+          if (mounted) setState(() => _isVerifyingFace = false);
+        }
       } else {
         _showErrorSnackBar(
             'Registration failed: ${response.statusCode}. $responseBody');
         if (mounted) setState(() => _isVerifyingFace = false);
       }
     } catch (e) {
-      print('Error in _registerFace: $e');
+      print('Error in _registerFaceVideo: $e');
       _showErrorSnackBar('Registration error: $e');
       if (mounted) setState(() => _isVerifyingFace = false);
     }
   }
 
-  Future<void> _verifyFaceAgainstRegistered(
-      String userId, XFile image) async {
-    try {
-      _showInfoSnackBar('Verifying your face...');
 
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$DEEPFACE_API_URL/verify-face'),
-      );
-
-      request.fields['user_id'] = userId;
-      request.files.add(
-        await http.MultipartFile.fromPath('image', image.path),
-      );
-
-      final response =
-          await request.send().timeout(const Duration(seconds: 30));
-      final responseBody = await response.stream.bytesToString();
-
-      print('Verify response status: ${response.statusCode}');
-      print('Verify response body: $responseBody');
-
-      if (response.statusCode == 200) {
-        // Parse response
-        try {
-          final jsonData = jsonDecode(responseBody);
-          final isMatch = jsonData['is_match'] ?? false;
-          final confidence = jsonData['confidence'] ?? 0.0;
-
-          if (isMatch) {
-            _showSuccessSnackBar(
-                'Face verified! Confidence: ${confidence.toStringAsFixed(2)}%');
-          } else {
-            _showErrorSnackBar(
-                'Face does not match. Confidence: ${confidence.toStringAsFixed(2)}%');
-          }
-        } catch (e) {
-          _showErrorSnackBar('Error parsing response: $e');
-        }
-      } else if (response.statusCode == 404) {
-        _showErrorSnackBar('User face not found. Please register first.');
-      } else {
-        _showErrorSnackBar(
-            'Verification failed: ${response.statusCode}. $responseBody');
-      }
-
-      if (mounted) setState(() => _isVerifyingFace = false);
-    } catch (e) {
-      print('Error in _verifyFaceAgainstRegistered: $e');
-      _showErrorSnackBar('Verification error: $e');
-      if (mounted) setState(() => _isVerifyingFace = false);
-    }
-  }
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
