@@ -36,7 +36,7 @@ class _TeacherDashboardPageState extends State<TeacherDashboardPage> {
     super.initState();
     _publicHolidays = defaultPublicHolidays;
     _loadPublicHolidays();
-    _fetchDashboardData();
+    _fetchDashboardData(); // Direct call
   }
 
   /// Check if a date is a public holiday
@@ -633,11 +633,35 @@ class _ManualAttendanceSheet extends StatefulWidget {
 class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
   bool _loading = true;
   List<Map<String, dynamic>> _students = [];
+  List<Map<String, dynamic>> _filteredStudents = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _fetchStudents();
+    _searchController.addListener(_filterStudents);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterStudents() {
+    final query = _searchController.text.toLowerCase().trim();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredStudents = List.from(_students);
+      } else {
+        _filteredStudents = _students.where((student) {
+          final name = (student['name'] as String).toLowerCase();
+          final idNumber = (student['idNumber'] as String).toLowerCase();
+          return name.contains(query) || idNumber.contains(query);
+        }).toList();
+      }
+    });
   }
 
   Future<void> _fetchStudents() async {
@@ -713,6 +737,7 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
       if (mounted) {
         setState(() {
           _students = students;
+          _filteredStudents = List.from(students);
           _loading = false;
         });
       }
@@ -724,6 +749,10 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
 
   Future<void> _markPresent(String studentEmail, String studentName) async {
     try {
+      // Use Firestore server timestamp
+      final serverTime = FieldValue.serverTimestamp();
+
+      // For filtering, still use selected date
       final startOfDay = DateTime(
         widget.selectedDate.year,
         widget.selectedDate.month,
@@ -757,9 +786,7 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
             .doc(todayRecord.id)
             .update({
               'status': 'present',
-              'markedAt': Timestamp.fromDate(
-                startOfDay.add(const Duration(hours: 12)),
-              ), // Set to noon of selected day
+              'markedAt': serverTime, // Use server timestamp
               'verificationMethod': 'manual',
               'revokedBy': FieldValue.delete(),
               'revokedAt': FieldValue.delete(),
@@ -772,11 +799,9 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
           'courseName': widget.sessionName,
           'email': studentEmail,
           'status': 'present',
-          'markedAt': Timestamp.fromDate(
-            startOfDay.add(const Duration(hours: 12)),
-          ), // Set to noon of selected day
+          'markedAt': serverTime, // Use server timestamp
           'verificationMethod': 'manual',
-          'deviceToken': '', // N/A
+          'deviceToken': '',
           'distance': 0,
           'faceConfidence': 0,
           'latitude': 0,
@@ -843,7 +868,10 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
                 }
                 Navigator.pop(context, true);
               },
-              child: const Text('Confirm'),
+              child: const Text(
+                'Confirm',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -858,7 +886,7 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
             .update({
               'status': 'absent',
               'revocationReason': reasonController.text.trim(),
-              'revokedAt': Timestamp.now(),
+              'revokedAt': FieldValue.serverTimestamp(), // Use server timestamp
               'revokedBy': 'teacher',
             });
 
@@ -894,22 +922,53 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
             ),
           ),
           const SizedBox(height: 16),
+          // Search Bar
+          TextField(
+            controller: _searchController,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Search by name or ID number',
+              hintStyle: const TextStyle(color: Colors.white54),
+              prefixIcon: const Icon(Icons.search, color: Colors.white54),
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white54),
+                      onPressed: () {
+                        _searchController.clear();
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: const Color(0xFF546E7A),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           Expanded(
             child: _loading
                 ? const Center(
                     child: CircularProgressIndicator(color: Colors.white),
                   )
-                : _students.isEmpty
-                ? const Center(
+                : _filteredStudents.isEmpty
+                ? Center(
                     child: Text(
-                      'No students found',
-                      style: TextStyle(color: Colors.white70),
+                      _searchController.text.isEmpty
+                          ? 'No students found'
+                          : 'No matching students',
+                      style: const TextStyle(color: Colors.white70),
                     ),
                   )
                 : ListView.builder(
-                    itemCount: _students.length,
+                    itemCount: _filteredStudents.length,
                     itemBuilder: (context, index) {
-                      final student = _students[index];
+                      final student = _filteredStudents[index];
                       final isPresent = student['status'] == 'present';
                       final isRevoked = student['revokedBy'] == 'teacher';
 
@@ -969,7 +1028,7 @@ class _ManualAttendanceSheetState extends State<_ManualAttendanceSheet> {
                                   foregroundColor: Colors.black,
                                 ),
                                 onPressed: () => _markPresent(
-                                  student['email'], // Use email for marking
+                                  student['email'],
                                   student['name'],
                                 ),
                                 child: const Text('Mark Present'),

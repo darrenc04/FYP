@@ -18,7 +18,8 @@ class _AddEditSessionPageState extends State<AddEditSessionPage> {
   // Controllers
   late TextEditingController _courseCodeController;
   late TextEditingController _sessionNameController;
-  late TextEditingController _lecturerNameController; // Kept for storage
+  late TextEditingController _lecturerNameController;
+  late TextEditingController _physicalLocationController;
   late TextEditingController _latController;
   late TextEditingController _lngController;
 
@@ -45,6 +46,9 @@ class _AddEditSessionPageState extends State<AddEditSessionPage> {
     );
     _lecturerNameController = TextEditingController(
       text: widget.sessionData?['lecturerName'] ?? '',
+    );
+    _physicalLocationController = TextEditingController(
+      text: widget.sessionData?['physicalLocation'] ?? '',
     );
 
     // Initialize Session Type
@@ -339,6 +343,90 @@ class _AddEditSessionPageState extends State<AddEditSessionPage> {
               ),
               const SizedBox(height: 16),
 
+              // Physical Location - Enhanced Design
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4E585D),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF81C3D7).withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: TextFormField(
+                  controller: _physicalLocationController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Physical Location',
+                    labelStyle: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                    hintText: 'e.g., DK1, Lab A, Room 101',
+                    hintStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.3),
+                      fontSize: 13,
+                    ),
+                    prefixIcon: Container(
+                      margin: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF81C3D7).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Color(0xFF81C3D7),
+                        size: 20,
+                      ),
+                    ),
+                    suffixIcon: _physicalLocationController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                              color: Colors.white54,
+                              size: 20,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _physicalLocationController.clear();
+                              });
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF81C3D7),
+                        width: 2,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: Colors.redAccent,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                  ),
+                  validator: (val) =>
+                      val == null || val.isEmpty ? 'Required' : null,
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Cancelled Switch
               SwitchListTile(
                 title: const Text(
@@ -513,6 +601,7 @@ class _AddEditSessionPageState extends State<AddEditSessionPage> {
         'end_time': Timestamp.fromDate(_endTime!),
         'location': GeoPoint(lat, lng),
         'isCancelled': _isCancelled,
+        'physicalLocation': _physicalLocationController.text.trim(),
       };
 
       if (_isEditMode) {
