@@ -231,11 +231,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     // For students, check attendance
                     if (role == 'student') {
                       // Check if attendance was marked in Attendance collection
+                      // Fetch all attendance records for this student and session to find today's record
+                      // We avoid complex queries/indexes by filtering in memory
                       final attendanceSnap = await FirebaseFirestore.instance
                           .collection('Attendance')
                           .where('email', isEqualTo: docId)
                           .where('sessionId', isEqualTo: sessionId)
-                          .limit(1)
                           .get(const GetOptions(source: Source.server));
 
                       bool attendanceMarked = false;
@@ -243,14 +244,31 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       String revocationReason = '';
 
                       if (attendanceSnap.docs.isNotEmpty) {
-                        final data = attendanceSnap.docs.first.data();
-                        if (data['status'] == 'present') {
-                          attendanceMarked = true;
-                        } else if (data['status'] == 'absent' &&
-                            data['revokedBy'] == 'teacher') {
-                          attendanceRevoked = true;
-                          revocationReason =
-                              data['revocationReason'] ?? 'No reason provided';
+                        for (var doc in attendanceSnap.docs) {
+                          final data = doc.data();
+                          final markedAt = (data['markedAt'] as Timestamp?)
+                              ?.toDate();
+
+                          if (markedAt != null) {
+                            final now = DateTime.now();
+                            final isSameDay =
+                                markedAt.year == now.year &&
+                                markedAt.month == now.month &&
+                                markedAt.day == now.day;
+
+                            if (isSameDay) {
+                              if (data['status'] == 'present') {
+                                attendanceMarked = true;
+                              } else if (data['status'] == 'absent' &&
+                                  data['revokedBy'] == 'teacher') {
+                                attendanceRevoked = true;
+                                revocationReason =
+                                    data['revocationReason'] ??
+                                    'No reason provided';
+                              }
+                              break; // Found today's record
+                            }
+                          }
                         }
                       }
 
@@ -730,6 +748,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final attendanceRevoked = session['attendanceRevoked'] ?? false;
     final revocationReason = session['revocationReason'] ?? '';
     final isCancelled = session['isCancelled'] ?? false;
+    final physicalLocation = session['physicalLocation'] ?? 'Unknown Location';
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
 
     // Extract and format time
@@ -888,6 +907,29 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: Color(0xFF636E72),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    physicalLocation,
+                    style: const TextStyle(
+                      color: Color(0xFF636E72),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 // Action Button
                 if (isCancelled)
                   Container(
@@ -1013,6 +1055,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
     final sessionType = session['sessionsType'] ?? 'Class';
     final isCancelled = session['isCancelled'] ?? false;
+    final physicalLocation = session['physicalLocation'] ?? 'Unknown Location';
 
     final sessionId = session['id'];
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
@@ -1149,6 +1192,29 @@ class _HomePageState extends State<HomePage> with RouteAware {
                           ),
                         ),
                     ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: Color(0xFF636E72),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    physicalLocation,
+                    style: const TextStyle(
+                      color: Color(0xFF636E72),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
