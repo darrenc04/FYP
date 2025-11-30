@@ -220,6 +220,22 @@ class _DeviceLinkingPageState extends State<DeviceLinkingPage> {
 
         if (confirmed != true) return;
 
+        // 1.5 Check if device is already linked to another account
+        final querySnapshot = await _firestore
+            .collection('Users')
+            .where('deviceToken', isEqualTo: _currentDeviceId)
+            .get();
+
+        // Filter out the current user's doc if it happens to be there (though unlikely if we are binding)
+        final otherUsers = querySnapshot.docs.where((doc) => doc.id != docId);
+
+        if (otherUsers.isNotEmpty) {
+          _showErrorSnackBar(
+            'This device is already linked to another account. Please ask the other account to unbind it first.',
+          );
+          return;
+        }
+
         // 2. Email Verification
         final verified = await _verifyAction('Binding');
         if (!verified) return;
