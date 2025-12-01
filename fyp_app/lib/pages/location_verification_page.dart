@@ -169,7 +169,7 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       debugPrint('Location verification error: $e');
       setState(() {
         _verifying = false;
-        _errorMessage = 'Failed to verify location: ${e.toString()}';
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     }
   }
@@ -201,7 +201,7 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
 
       final sessionData = sessionDoc.data();
       final courseName = sessionData?['sessionsName'] ?? 'Unknown';
-      
+
       // Store course name in state for success dialog
       setState(() {
         _courseName = courseName;
@@ -239,7 +239,8 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       String verificationMethod = 'ultrasonic'; // Default
       if (widget.faceConfidence != null && widget.faceConfidence! > 0) {
         verificationMethod = 'face';
-      } else if (widget.detectedFrequency == 0 && widget.faceConfidence == null) {
+      } else if (widget.detectedFrequency == 0 &&
+          widget.faceConfidence == null) {
         // detectedFrequency is 0 for fingerprint, and faceConfidence is null
         verificationMethod = 'fingerprint';
       }
@@ -264,6 +265,7 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
       debugPrint('Attendance saved successfully');
     } catch (e) {
       debugPrint('Error saving attendance: $e');
+      rethrow; // Re-throw the error so it can be caught in _verifyLocation
     }
   }
 
@@ -316,8 +318,7 @@ class _LocationVerificationPageState extends State<LocationVerificationPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            if (_courseName != null)
-              Text('Course: $_courseName'),
+            if (_courseName != null) Text('Course: $_courseName'),
             if (_distance != null) ...[
               const SizedBox(height: 8),
               Text('Distance: ${_distance!.toStringAsFixed(1)}m from class'),

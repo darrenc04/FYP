@@ -9,46 +9,6 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Register with email and password (for sign-up)
-  Future<User?> registerWithEmail(
-    String email,
-    String password,
-    String phoneNumber,
-    String fullName,
-    String idNumber,
-    String program,
-  ) async {
-    try {
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final User? user = result.user;
-      if (user != null) {
-        final String docId = user.email!.toLowerCase();
-        final docRef = _firestore.collection('Users').doc(docId);
-
-        await docRef.set({
-          'uid': user.uid,
-          'email': user.email,
-          'fullName': fullName,
-          'idNumber': idNumber,
-          'program': program,
-          'phoneNumber': phoneNumber,
-          'sessionsId': [],
-          'deviceToken': '',
-          'biometric': '',
-          'lastDeviceRemoved': '',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
-      return result.user;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   // Sign in with email and password
   Future<User?> signInWithEmail(String email, String password) async {
     try {
@@ -56,26 +16,6 @@ class AuthService {
         email: email,
         password: password,
       );
-
-      // save user info if it doesn't already exists
-      final User? user = result.user;
-
-      if (user != null) {
-        final String docId = user.email!.toLowerCase();
-        final docRef = _firestore.collection('Users').doc(docId);
-        final docSnap = await docRef.get();
-
-        if (!docSnap.exists) {
-          await docRef.set({
-            'uid': user.uid,
-            'email': user.email,
-            'deviceToken': '',
-            'biometric': '',
-            'createdAt': FieldValue.serverTimestamp(),
-            'role': 'student',
-          });
-        }
-      }
       return result.user;
     } catch (e) {
       rethrow;
@@ -85,9 +25,14 @@ class AuthService {
   // Sign in with Google
   Future<User?> signInWithGoogle() async {
     try {
+      print("DEBUG: Starting Google Sign-In");
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) return null;
+      if (googleUser == null) {
+        print("DEBUG: Google Sign-In aborted by user");
+        return null;
+      }
 
+      print("DEBUG: Google User obtained: ${googleUser.email}");
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
@@ -96,27 +41,67 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
+      print("DEBUG: Signing in with credential");
       UserCredential result = await _auth.signInWithCredential(credential);
       final User? user = result.user;
 
       if (user != null) {
-        final String docId = user.email!.toLowerCase();
-        final docRef = _firestore.collection('Users').doc(docId);
-        final docSnap = await docRef.get();
+        print(
+          "DEBUG: Firebase Auth successful. User: ${user.uid}, Email: ${user.email}",
+        );
+        if (user.email != null) {
+          final String docId = user.email!.toLowerCase();
+          final docRef = _firestore.collection('Users').doc(docId);
 
-        if (!docSnap.exists) {
-          await docRef.set({
-            'uid': user.uid,
-            'email': user.email,
-            'deviceToken': '',
-            'biometric': '',
-            'createdAt': FieldValue.serverTimestamp(),
-          });
+          try {
+            final docSnap = await docRef.get();
+            if (!docSnap.exists) {
+              print("DEBUG: User not found in Firestore. Access denied.");
+              await signOut();
+              throw Exception(
+                'Access denied. You are not registered in the system.',
+              );
+            }
+
+            final data = docSnap.data() as Map<String, dynamic>;
+            final role = data['role'] as String?;
+
+            if (role != 'student' && role != 'teacher') {
+              print("DEBUG: Invalid role: $role");
+              await signOut();
+              throw Exception(
+                'Access denied. Only students and teachers can sign in.',
+              );
+            }
+
+            print("DEBUG: User profile exists and has valid role: $role");
+
+            if (data['uid'] != user.uid) {
+              print("DEBUG: Updating Firestore UID to match Auth UID");
+              await docRef.update({'uid': user.uid});
+            }
+          } catch (e) {
+            print("DEBUG: Error accessing Firestore or validating user: $e");
+            if (e.toString().contains('Access denied')) {
+              rethrow;
+            }
+            await signOut();
+            throw Exception(
+              'Login failed: Unable to verify user profile. Please try again.',
+            );
+          }
+        } else {
+          print("DEBUG: User email is null. Cannot check Firestore profile.");
+          await signOut();
+          throw Exception('Login failed: Email is required.');
         }
+      } else {
+        print("DEBUG: Firebase Auth returned null user");
       }
 
       return result.user;
     } catch (e) {
+      print("DEBUG: Error in signInWithGoogle: $e");
       rethrow;
     }
   }
@@ -161,8 +146,9 @@ class AuthService {
       if (user == null) throw Exception('No user logged in');
 
       final userEmail = user.email!.toLowerCase();
-      final fileName = 'profile_picture_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      
+      final fileName =
+          'profile_picture_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
       // Upload to Firebase Storage: users/{email}/profile_picture
       final storageRef = FirebaseStorage.instance
           .ref()
@@ -201,6 +187,23 @@ class AuthService {
 
       await user.reauthenticateWithCredential(cred);
       await user.updatePassword(newPassword);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Send Password Reset Email
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      // Check if email exists in Users collection
+      final docId = email.toLowerCase();
+      final docSnap = await _firestore.collection('Users').doc(docId).get();
+
+      if (!docSnap.exists) {
+        throw Exception('Email not found in our records');
+      }
+
+      await _auth.sendPasswordResetEmail(email: email);
     } catch (e) {
       rethrow;
     }

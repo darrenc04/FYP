@@ -49,7 +49,7 @@ final Set<String> defaultPublicHolidays = {
   '2026-09-16', // Malaysia Day
   '2026-10-29', // Deepavali
   '2026-12-25', // Christmas Day
-  '2025-11-25'  // testing
+  '2025-11-25', // testing
 };
 
 class HomePage extends StatefulWidget {
@@ -65,7 +65,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
   List<Map<String, dynamic>> _sessions = [];
   bool _loading = true;
   String? _profilePicture; // Add profile picture
-  Set<String> _publicHolidays = defaultPublicHolidays; // Dynamically loaded from Firestore
+  Set<String> _publicHolidays =
+      defaultPublicHolidays; // Dynamically loaded from Firestore
 
   // Audio player for teachers
   final AudioPlayer tonePlayer = AudioPlayer();
@@ -114,10 +115,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
     try {
       final now = DateTime.now();
       final year = now.year;
-      
+
       // Fetch holidays from Calendarific API for Malaysia
       final response = await _fetchHolidaysFromApi(year);
-      
+
       if (response.isNotEmpty && mounted) {
         setState(() {
           _publicHolidays = response.toSet();
@@ -142,12 +143,11 @@ class _HomePageState extends State<HomePage> with RouteAware {
   /// Fetch holidays from Calendarific API for Malaysia
   Future<List<String>> _fetchHolidaysFromApi(int year) async {
     try {
-
       // const String apiKey = 'SWt92k3yzLVrXcUFdXanvvqbvqokcqao';
       const String apiKey = 'USE WHEN NEEDED';
-      
+
       final url = Uri.parse(
-        'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year'
+        'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year',
       );
       final response = await http.get(url).timeout(const Duration(seconds: 10));
 
@@ -156,10 +156,10 @@ class _HomePageState extends State<HomePage> with RouteAware {
           debugPrint('No holidays data returned from Calendarific API');
           return [];
         }
-        
+
         final Map<String, dynamic> data = jsonDecode(response.body);
         final List<dynamic> holidays = data['response']?['holidays'] ?? [];
-        
+
         final List<String> holidayDates = [];
         for (var holiday in holidays) {
           final date = holiday['date']?['iso'] as String?;
@@ -167,11 +167,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
             holidayDates.add(date);
           }
         }
-        
-        debugPrint('Loaded ${holidayDates.length} holidays from Calendarific API');
+
+        debugPrint(
+          'Loaded ${holidayDates.length} holidays from Calendarific API',
+        );
         return holidayDates;
       } else {
-        debugPrint('Failed to fetch holidays from Calendarific: ${response.statusCode}');
+        debugPrint(
+          'Failed to fetch holidays from Calendarific: ${response.statusCode}',
+        );
         return [];
       }
     } catch (e) {
@@ -227,11 +231,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     // For students, check attendance
                     if (role == 'student') {
                       // Check if attendance was marked in Attendance collection
+                      // Fetch all attendance records for this student and session to find today's record
+                      // We avoid complex queries/indexes by filtering in memory
                       final attendanceSnap = await FirebaseFirestore.instance
                           .collection('Attendance')
                           .where('email', isEqualTo: docId)
                           .where('sessionId', isEqualTo: sessionId)
-                          .limit(1)
                           .get(const GetOptions(source: Source.server));
 
                       bool attendanceMarked = false;
@@ -239,14 +244,31 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       String revocationReason = '';
 
                       if (attendanceSnap.docs.isNotEmpty) {
-                        final data = attendanceSnap.docs.first.data();
-                        if (data['status'] == 'present') {
-                          attendanceMarked = true;
-                        } else if (data['status'] == 'absent' &&
-                            data['revokedBy'] == 'teacher') {
-                          attendanceRevoked = true;
-                          revocationReason =
-                              data['revocationReason'] ?? 'No reason provided';
+                        for (var doc in attendanceSnap.docs) {
+                          final data = doc.data();
+                          final markedAt = (data['markedAt'] as Timestamp?)
+                              ?.toDate();
+
+                          if (markedAt != null) {
+                            final now = DateTime.now();
+                            final isSameDay =
+                                markedAt.year == now.year &&
+                                markedAt.month == now.month &&
+                                markedAt.day == now.day;
+
+                            if (isSameDay) {
+                              if (data['status'] == 'present') {
+                                attendanceMarked = true;
+                              } else if (data['status'] == 'absent' &&
+                                  data['revokedBy'] == 'teacher') {
+                                attendanceRevoked = true;
+                                revocationReason =
+                                    data['revocationReason'] ??
+                                    'No reason provided';
+                              }
+                              break; // Found today's record
+                            }
+                          }
                         }
                       }
 
@@ -660,7 +682,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const AttendanceOverviewPage(),
+                            builder: (context) =>
+                                const AttendanceOverviewPage(),
                           ),
                         );
                       },
@@ -725,6 +748,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final attendanceRevoked = session['attendanceRevoked'] ?? false;
     final revocationReason = session['revocationReason'] ?? '';
     final isCancelled = session['isCancelled'] ?? false;
+    final physicalLocation = session['physicalLocation'] ?? 'Unknown Location';
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
 
     // Extract and format time
@@ -883,6 +907,29 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: Color(0xFF636E72),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    physicalLocation,
+                    style: const TextStyle(
+                      color: Color(0xFF636E72),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 // Action Button
                 if (isCancelled)
                   Container(
@@ -893,19 +940,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.red,
-                        width: 1,
-                      ),
+                      border: Border.all(color: Colors.red, width: 1),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.event_busy,
-                          color: Colors.red,
-                          size: 14,
-                        ),
+                        Icon(Icons.event_busy, color: Colors.red, size: 14),
                         SizedBox(width: 4),
                         Text(
                           'Cancelled',
@@ -1015,6 +1055,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     final sessionName = session['sessionsName'] ?? 'Unknown Session';
     final sessionType = session['sessionsType'] ?? 'Class';
     final isCancelled = session['isCancelled'] ?? false;
+    final physicalLocation = session['physicalLocation'] ?? 'Unknown Location';
 
     final sessionId = session['id'];
     final sessionTypeInitial = _getSessionTypeInitial(sessionType);
@@ -1157,73 +1198,98 @@ class _HomePageState extends State<HomePage> with RouteAware {
             ),
             const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Broadcast Button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: isSessionActive
-                        ? () => _toggleBroadcast(sessionId)
-                        : null,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSessionActive
-                            ? (isBroadcasting
-                                  ? Colors.red.withOpacity(0.1)
-                                  : const Color(0xFF4A9FE8).withOpacity(0.1))
-                            : Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: Color(0xFF636E72),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    physicalLocation,
+                    style: const TextStyle(
+                      color: Color(0xFF636E72),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (sessionType.toLowerCase().contains('lecture'))
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Broadcast Button
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: isSessionActive
+                          ? () => _toggleBroadcast(sessionId)
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
                           color: isSessionActive
                               ? (isBroadcasting
-                                    ? Colors.red
-                                    : const Color(0xFF4A9FE8))
-                              : Colors.grey.withOpacity(0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isBroadcasting ? Icons.stop : Icons.play_arrow,
+                                    ? Colors.red.withOpacity(0.1)
+                                    : const Color(0xFF4A9FE8).withOpacity(0.1))
+                              : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
                             color: isSessionActive
                                 ? (isBroadcasting
                                       ? Colors.red
                                       : const Color(0xFF4A9FE8))
-                                : const Color(0xFF636E72),
-                            size: 14,
+                                : Colors.grey.withOpacity(0.3),
+                            width: 1,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isCancelled
-                                ? 'Cancelled'
-                                : isBroadcasting
-                                ? 'Stop Broadcast'
-                                : 'Start Broadcast',
-                            style: TextStyle(
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isBroadcasting ? Icons.stop : Icons.play_arrow,
                               color: isSessionActive
                                   ? (isBroadcasting
                                         ? Colors.red
                                         : const Color(0xFF4A9FE8))
                                   : const Color(0xFF636E72),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                              size: 14,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 4),
+
+                            Text(
+                              isCancelled
+                                  ? 'Cancelled'
+                                  : isBroadcasting
+                                  ? 'Stop Broadcast'
+                                  : 'Start Broadcast',
+                              style: TextStyle(
+                                color: isSessionActive
+                                    ? (isBroadcasting
+                                          ? Colors.red
+                                          : const Color(0xFF4A9FE8))
+                                    : const Color(0xFF636E72),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),
@@ -1290,7 +1356,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                  'Please set up biometric verification in Device Biometric settings'),
+                'Please set up biometric verification in Device Biometric settings',
+              ),
               backgroundColor: Colors.red,
               duration: Duration(seconds: 3),
             ),
@@ -1310,10 +1377,8 @@ class _HomePageState extends State<HomePage> with RouteAware {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => MarkAttendancePage(
-            sessionId: sessionId,
-            sessionName: sessionName,
-          ),
+          builder: (context) =>
+              UltrasonicPage(sessionId: sessionId, sessionName: sessionName),
         ),
       ).then((_) => _refreshData());
     }

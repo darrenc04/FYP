@@ -242,7 +242,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 30),
-            _buildInfoTile('Legal name', name, 'fullName', isEditable: true),
+            _buildInfoTile('Full name', name, 'fullName', isEditable: true),
             _buildInfoTile(
               'Email address',
               email,
@@ -257,7 +257,7 @@ class _ProfilePageState extends State<ProfilePage> {
               actionLabel: phone == 'Not provided' ? 'Add' : 'Edit',
             ),
             _buildInfoTile(
-              'Government ID',
+              'ID Number',
               idNumber,
               'idNumber',
               isEditable: true,
@@ -269,13 +269,6 @@ class _ProfilePageState extends State<ProfilePage> {
               'address',
               isEditable: true,
               actionLabel: address == 'Not provided' ? 'Add' : 'Edit',
-            ),
-            _buildInfoTile(
-              'Emergency contact',
-              emergencyContact,
-              'emergencyContact',
-              isEditable: true,
-              actionLabel: emergencyContact == 'Not provided' ? 'Add' : 'Edit',
             ),
 
             const SizedBox(height: 20),

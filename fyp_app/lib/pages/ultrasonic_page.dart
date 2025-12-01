@@ -11,21 +11,21 @@ import 'package:path_provider/path_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'device_verification_page.dart';
 
-class MarkAttendancePage extends StatefulWidget {
+class UltrasonicPage extends StatefulWidget {
   final String sessionId;
   final String sessionName;
 
-  const MarkAttendancePage({
+  const UltrasonicPage({
     super.key,
     required this.sessionId,
     required this.sessionName,
   });
 
   @override
-  State<MarkAttendancePage> createState() => _MarkAttendancePageState();
+  State<UltrasonicPage> createState() => _UltrasonicPageState();
 }
 
-class _MarkAttendancePageState extends State<MarkAttendancePage>
+class _UltrasonicPageState extends State<UltrasonicPage>
     with TickerProviderStateMixin {
   final AudioRecorder audioRecorder = AudioRecorder();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
