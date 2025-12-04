@@ -16,6 +16,7 @@ import 'teacher_dashboard_page.dart';
 import 'ultrasonic_page.dart';
 import 'face_verification_page_v2.dart';
 import 'fingerprint_verification_page.dart';
+import 'insert_test_data_page.dart';
 
 // Default public holidays list (as fallback if Firestore is unavailable)
 final Set<String> defaultPublicHolidays = {
@@ -623,6 +624,33 @@ class _HomePageState extends State<HomePage> with RouteAware {
                         Icons.settings_outlined,
                         color: Color(0xFF3D4A4F),
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Temporary test data button
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Colors.orange[300],
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const InsertTestDataPage(),
+                          ),
+                        );
+                      },
+                      padding: EdgeInsets.zero,
+                      iconSize: 20,
+                      icon: const Icon(
+                        Icons.storage,
+                        color: Color(0xFF3D4A4F),
+                      ),
+                      tooltip: 'Insert Test Data',
                     ),
                   ),
                 ],

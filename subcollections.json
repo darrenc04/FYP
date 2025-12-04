@@ -1,0 +1,332 @@
+[
+  {
+    "session_id": "BICT2083",
+    "subcollection_name": "2025-12-19",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BICT2083",
+      "courseName": "Database Design",
+      "end_time": "December 19, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": [
+        32.09647942095743,
+        101.66047983441658
+      ],
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Tutorial",
+      "start_time": "December 19, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19900
+    }
+  },
+  {
+    "session_id": "BICT2083",
+    "subcollection_name": "2025-12-24",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BICT2083",
+      "courseName": "Database Design",
+      "end_time": "December 24, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": [
+        32.20479310520979,
+        101.82155135736845
+      ],
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Tutorial",
+      "start_time": "December 24, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 18900
+    }
+  },
+  {
+    "session_id": "BICT2083",
+    "subcollection_name": "2025-12-31",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BICT2083",
+      "courseName": "Database Design",
+      "end_time": "December 31, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": [
+        32.18745112079071,
+        101.68647915052581
+      ],
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Tutorial",
+      "start_time": "December 31, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19000
+    }
+  },
+  {
+    "session_id": "BICT2083",
+    "subcollection_name": "2026-01-04",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BICT2083",
+      "courseName": "Database Design",
+      "end_time": "January 04, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": [
+        32.197977616162646,
+        101.77504542631608
+      ],
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Tutorial",
+      "start_time": "January 04, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 20000
+    }
+  },
+  {
+    "session_id": "BICT2083",
+    "subcollection_name": "2026-01-06",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BICT2083",
+      "courseName": "Database Design",
+      "end_time": "January 06, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": [
+        32.1350395508857,
+        101.70067679635062
+      ],
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Tutorial",
+      "start_time": "January 06, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19600
+    }
+  },
+  {
+    "session_id": "BICT2083",
+    "subcollection_name": "2026-01-07",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BICT2083",
+      "courseName": "Database Design",
+      "end_time": "January 07, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": [
+        32.18841498251431,
+        101.72837118989581
+      ],
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Tutorial",
+      "start_time": "January 07, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19600
+    }
+  },
+  {
+    "session_id": "BMIT2073",
+    "subcollection_name": "2025-12-05",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMIT2073",
+      "courseName": "Mobile Application Development",
+      "end_time": "December 05, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. John Ooi",
+      "location": [
+        32.09537911701299,
+        101.75090961323028
+      ],
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "December 05, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 20000
+    }
+  },
+  {
+    "session_id": "BMIT2073",
+    "subcollection_name": "2025-12-13",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMIT2073",
+      "courseName": "Mobile Application Development",
+      "end_time": "December 13, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. John Ooi",
+      "location": [
+        32.09700911438834,
+        101.76934346328355
+      ],
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "December 13, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19900
+    }
+  },
+  {
+    "session_id": "BMIT2073",
+    "subcollection_name": "2025-12-28",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMIT2073",
+      "courseName": "Mobile Application Development",
+      "end_time": "December 28, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. John Ooi",
+      "location": [
+        32.233043669435375,
+        101.77486801589849
+      ],
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "December 28, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 18600
+    }
+  },
+  {
+    "session_id": "BMIT2073",
+    "subcollection_name": "2025-12-31",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMIT2073",
+      "courseName": "Mobile Application Development",
+      "end_time": "December 31, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. John Ooi",
+      "location": [
+        32.17805591115217,
+        101.81622251163509
+      ],
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "December 31, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19300
+    }
+  },
+  {
+    "session_id": "BMIT2073",
+    "subcollection_name": "2026-01-15",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMIT2073",
+      "courseName": "Mobile Application Development",
+      "end_time": "January 15, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. John Ooi",
+      "location": [
+        32.14762670633504,
+        101.63422178812326
+      ],
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "January 15, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 18600
+    }
+  },
+  {
+    "session_id": "BMIT2073",
+    "subcollection_name": "2026-01-15",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMIT2073",
+      "courseName": "Mobile Application Development",
+      "end_time": "January 15, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. John Ooi",
+      "location": [
+        32.1077240347638,
+        101.64613031617165
+      ],
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "January 15, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19900
+    }
+  },
+  {
+    "session_id": "BMSE3014",
+    "subcollection_name": "2025-12-16",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMSE3014",
+      "courseName": "Software Engineering Principles",
+      "end_time": "December 16, 2025 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. Sarah Lee",
+      "location": [
+        32.15448187555515,
+        101.67254469734019
+      ],
+      "physicalLocation": "L108",
+      "sessionsName": "Software Engineering Principles",
+      "sessionsType": "Lecture",
+      "start_time": "December 16, 2025 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19700
+    }
+  },
+  {
+    "session_id": "BMSE3014",
+    "subcollection_name": "2026-01-12",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMSE3014",
+      "courseName": "Software Engineering Principles",
+      "end_time": "January 12, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. Sarah Lee",
+      "location": [
+        32.10418756338111,
+        101.65958697362366
+      ],
+      "physicalLocation": "L108",
+      "sessionsName": "Software Engineering Principles",
+      "sessionsType": "Lecture",
+      "start_time": "January 12, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19800
+    }
+  },
+  {
+    "session_id": "BMSE3014",
+    "subcollection_name": "2026-01-16",
+    "document_id": "session_info",
+    "data": {
+      "courseCode": "BMSE3014",
+      "courseName": "Software Engineering Principles",
+      "end_time": "January 16, 2026 at 11:59:59 PM UTC+8",
+      "frequencyGeneratedAt": "2025-12-04T17:20:25Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. Sarah Lee",
+      "location": [
+        32.149434035146136,
+        101.80139304593659
+      ],
+      "physicalLocation": "L108",
+      "sessionsName": "Software Engineering Principles",
+      "sessionsType": "Lecture",
+      "start_time": "January 16, 2026 at 12:00:00 AM UTC+8",
+      "targetFrequency": 19800
+    }
+  }
+]
