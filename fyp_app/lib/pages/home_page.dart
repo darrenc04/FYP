@@ -203,97 +203,85 @@ class _HomePageState extends State<HomePage> with RouteAware {
           final sessionIds = List<String>.from(docSnap['sessionsId'] ?? []);
 
           List<Map<String, dynamic>> sessions = [];
-          final now = DateTime.now();
+          final today = DateTime.now();
+          final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
           for (String sessionId in sessionIds) {
             try {
-              final sessionSnap = await FirebaseFirestore.instance
+              // Check if session is a public holiday
+              final isCancelled = _isPublicHoliday(today);
+
+              // Fetch the dated subcollection for today
+              final sessionSubDoc = await FirebaseFirestore.instance
                   .collection('Sessions')
                   .doc(sessionId)
+                  .collection(todayStr)
+                  .doc('session_info')
                   .get();
 
-              if (sessionSnap.exists) {
-                final sessionData = sessionSnap.data() as Map<String, dynamic>;
-                final startTime = sessionData['start_time'] as Timestamp?;
+              if (sessionSubDoc.exists) {
+                final sessionData = sessionSubDoc.data() as Map<String, dynamic>;
 
-                if (startTime != null) {
-                  final sessionDate = startTime.toDate();
+                // For students, check attendance
+                if (role == 'student') {
+                  // Check if attendance was marked in Attendance collection
+                  final attendanceSnap = await FirebaseFirestore.instance
+                      .collection('Attendance')
+                      .where('email', isEqualTo: docId)
+                      .where('sessionId', isEqualTo: sessionId)
+                      .get(const GetOptions(source: Source.server));
 
-                  // Check if session is scheduled for the same day of week (recurring weekly)
-                  final sessionDayOfWeek =
-                      sessionDate.weekday; // 1=Monday, 7=Sunday
-                  final todayDayOfWeek = now.weekday;
+                  bool attendanceMarked = false;
+                  bool attendanceRevoked = false;
+                  String revocationReason = '';
 
-                  // Only add sessions scheduled for the same day of week
-                  if (sessionDayOfWeek == todayDayOfWeek) {
-                    // Check if today is a public holiday
-                    final isCancelled = _isPublicHoliday(now);
+                  if (attendanceSnap.docs.isNotEmpty) {
+                    for (var doc in attendanceSnap.docs) {
+                      final data = doc.data();
+                      final markedAt = (data['markedAt'] as Timestamp?)
+                          ?.toDate();
 
-                    // For students, check attendance
-                    if (role == 'student') {
-                      // Check if attendance was marked in Attendance collection
-                      // Fetch all attendance records for this student and session to find today's record
-                      // We avoid complex queries/indexes by filtering in memory
-                      final attendanceSnap = await FirebaseFirestore.instance
-                          .collection('Attendance')
-                          .where('email', isEqualTo: docId)
-                          .where('sessionId', isEqualTo: sessionId)
-                          .get(const GetOptions(source: Source.server));
+                      if (markedAt != null) {
+                        final isSameDay =
+                            markedAt.year == today.year &&
+                            markedAt.month == today.month &&
+                            markedAt.day == today.day;
 
-                      bool attendanceMarked = false;
-                      bool attendanceRevoked = false;
-                      String revocationReason = '';
-
-                      if (attendanceSnap.docs.isNotEmpty) {
-                        for (var doc in attendanceSnap.docs) {
-                          final data = doc.data();
-                          final markedAt = (data['markedAt'] as Timestamp?)
-                              ?.toDate();
-
-                          if (markedAt != null) {
-                            final now = DateTime.now();
-                            final isSameDay =
-                                markedAt.year == now.year &&
-                                markedAt.month == now.month &&
-                                markedAt.day == now.day;
-
-                            if (isSameDay) {
-                              if (data['status'] == 'present') {
-                                attendanceMarked = true;
-                              } else if (data['status'] == 'absent' &&
-                                  data['revokedBy'] == 'teacher') {
-                                attendanceRevoked = true;
-                                revocationReason =
-                                    data['revocationReason'] ??
-                                    'No reason provided';
-                              }
-                              break; // Found today's record
-                            }
+                        if (isSameDay) {
+                          if (data['status'] == 'present') {
+                            attendanceMarked = true;
+                          } else if (data['status'] == 'absent' &&
+                              data['revokedBy'] == 'teacher') {
+                            attendanceRevoked = true;
+                            revocationReason =
+                                data['revocationReason'] ??
+                                'No reason provided';
                           }
+                          break; // Found today's record
                         }
                       }
-
-                      sessions.add({
-                        ...sessionData,
-                        'id': sessionId,
-                        'attendanceMarked': attendanceMarked,
-                        'attendanceRevoked': attendanceRevoked,
-                        'revocationReason': revocationReason,
-                        'isCancelled': isCancelled,
-                      });
-                    } else {
-                      // For teachers
-                      sessions.add({
-                        ...sessionData,
-                        'id': sessionId,
-                        'isCancelled': isCancelled,
-                      });
                     }
                   }
+
+                  sessions.add({
+                    ...sessionData,
+                    'id': sessionId,
+                    'attendanceMarked': attendanceMarked,
+                    'attendanceRevoked': attendanceRevoked,
+                    'revocationReason': revocationReason,
+                    'isCancelled': isCancelled,
+                  });
+                } else {
+                  // For teachers
+                  sessions.add({
+                    ...sessionData,
+                    'id': sessionId,
+                    'isCancelled': isCancelled,
+                  });
                 }
               }
             } catch (e) {
-              debugPrint('Error fetching session $sessionId: $e');
+              debugPrint('Error fetching session $sessionId for $todayStr: $e');
             }
           }
 

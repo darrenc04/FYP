@@ -48,23 +48,38 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
 
     setState(() {
       _isInserting = true;
-      _status = 'Inserting $numRecords records...';
+      _status = 'Inserting $numRecords records per session...';
       _insertedCount = 0;
     });
 
     try {
-      final today = DateTime.now();
       final random = Random();
+      int totalRecordCount = 0;
+      final today = DateTime.now();
 
-      for (int i = 0; i < numRecords; i++) {
-        // Pick random existing session
-        final sessionId = _existingSessions[random.nextInt(_existingSessions.length)];
+      // Generate weekly dates: past 3 weeks + today + future weeks
+      List<String> weeklyDates = [];
+      
+      // Add past weeks (negative offset)
+      for (int week = 3; week >= 1; week--) {
+        final weekDate = today.subtract(Duration(days: week * 7));
+        final dateStr = '${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}';
+        weeklyDates.add(dateStr);
+      }
+      
+      // Add today
+      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      weeklyDates.add(todayStr);
+      
+      // Add future weeks
+      for (int week = 1; week < numRecords; week++) {
+        final weekDate = today.add(Duration(days: week * 7));
+        final dateStr = '${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}';
+        weeklyDates.add(dateStr);
+      }
 
-        // Generate random date (1-30 days from now)
-        final daysOffset = random.nextInt(30) + 1;
-        final date = today.add(Duration(days: daysOffset));
-        final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
+      // For each existing session
+      for (final sessionId in _existingSessions) {
         // Get the existing session data to use as template
         final sessionDoc = await _firestore.collection('Sessions').doc(sessionId).get();
         
@@ -74,46 +89,50 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
 
         final sessionData = sessionDoc.data() as Map<String, dynamic>;
 
-        // Prepare data using existing session info
-        final data = {
-          'end_time': Timestamp.fromDate(
-            DateTime(date.year, date.month, date.day, 23, 59, 59),
-          ),
-          'frequencyGeneratedAt': Timestamp.now(),
-          'isCancelled': random.nextBool(),
-          'lecturerName': sessionData['lecturerName'] ?? 'Unknown',
-          'location': sessionData['location'] ?? GeoPoint(0, 0),
-          'physicalLocation': sessionData['physicalLocation'] ?? 'Unknown',
-          'sessionsName': sessionData['sessionsName'] ?? 'Session',
-          'sessionsType': sessionData['sessionsType'] ?? 'Class',
-          'start_time': Timestamp.fromDate(
-            DateTime(date.year, date.month, date.day, 12, 0, 0),
-          ),
-          'targetFrequency': 18000 + (random.nextInt(21) * 100),
-        };
+        // For each weekly date
+        for (final dateStr in weeklyDates) {
+          // Prepare data using existing session info
+          final data = {
+            'end_time': Timestamp.fromDate(
+              DateTime.parse('$dateStr 23:59:59'),
+            ),
+            'frequencyGeneratedAt': Timestamp.now(),
+            'isCancelled': random.nextBool(),
+            'lecturerName': sessionData['lecturerName'] ?? 'Unknown',
+            'location': sessionData['location'] ?? GeoPoint(0, 0),
+            'physicalLocation': sessionData['physicalLocation'] ?? 'Unknown',
+            'sessionsName': sessionData['sessionsName'] ?? 'Session',
+            'sessionsType': sessionData['sessionsType'] ?? 'Class',
+            'start_time': Timestamp.fromDate(
+              DateTime.parse('$dateStr 12:00:00'),
+            ),
+            'targetFrequency': 18000 + (random.nextInt(21) * 100),
+          };
 
-        // Insert into existing session's subcollection
-        await _firestore
-            .collection('Sessions')
-            .doc(sessionId)
-            .collection(dateStr)
-            .doc('session_info')
-            .set(data);
+          // Insert into existing session's subcollection
+          await _firestore
+              .collection('Sessions')
+              .doc(sessionId)
+              .collection(dateStr)
+              .doc('session_info')
+              .set(data);
 
-        setState(() {
-          _insertedCount = i + 1;
-          _status = 'Inserted $_insertedCount/$numRecords records...';
-        });
+          totalRecordCount++;
+          setState(() {
+            _insertedCount = totalRecordCount;
+            _status = 'Inserted $_insertedCount records...';
+          });
+        }
       }
 
       setState(() {
-        _status = '✅ Successfully inserted $numRecords records!';
+        _status = '✅ Successfully inserted ${_existingSessions.length} × $numRecords = $totalRecordCount records!';
         _isInserting = false;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Inserted $_insertedCount records successfully!'),
+          content: Text('✅ Inserted $totalRecordCount records successfully!'),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
