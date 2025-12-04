@@ -690,7 +690,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
                       padding: EdgeInsets.zero,
                       iconSize: 20,
                       icon: const Icon(
-                        Icons.calendar_today_outlined,
+                        Icons.history,
                         color: Color(0xFF3D4A4F),
                       ),
                     ),

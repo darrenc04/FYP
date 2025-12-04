@@ -166,16 +166,16 @@ class _FaceVerificationPageV2State extends State<FaceVerificationPageV2> {
             _blinkConfidence = blinkConfidence;
           });
 
-          if (isLive && blinksDetected >= 2 && faceConfidence >= 70.0) {
+          if (isLive && blinksDetected >= 2 && faceConfidence >= 65.0) {
             _showSuccessSnackBar(
               'Face matched! Blinks: $blinksDetected, Confidence: ${faceConfidence.toStringAsFixed(2)}%',
             );
             return {'success': true, 'details': jsonData};
           } else {
             String errorMsg = 'Verification failed. ';
-            if (faceConfidence < 70.0) {
+            if (faceConfidence < 65.0) {
               errorMsg +=
-                  'Face does not match (${faceConfidence.toStringAsFixed(2)}% - need at least 70%). ';
+                  'Face does not match (${faceConfidence.toStringAsFixed(2)}% - need at least 65%). ';
             }
             if (blinksDetected < 2) {
               errorMsg += 'Need at least 2 blinks, detected: $blinksDetected. ';
