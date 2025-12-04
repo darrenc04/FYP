@@ -1322,15 +1322,15 @@ class _HomePageState extends State<HomePage> with RouteAware {
             userDoc.data()?['fingerprintVerified'] ?? false;
 
         // Routing logic:
-        // - If both face and fingerprint verified: use FaceVerificationPageV2
-        // - If only face verified: use FaceVerificationPageV2
-        // - If only fingerprint verified: use FingerprintVerificationPage
-        if (isFaceVerified) {
-          // Use face verification if available
+        // - If fingerprint verified: use FingerprintVerificationPage (preferred)
+        // - If only face verified: use FaceVerificationPageV2 (fallback)
+        // - If neither: show error
+        if (isFingerprintVerified) {
+          // Use fingerprint verification (preferred method)
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FaceVerificationPageV2(
+              builder: (context) => FingerprintVerificationPage(
                 sessionId: sessionId,
                 courseCode: courseCode,
                 courseName: courseName,
@@ -1338,12 +1338,12 @@ class _HomePageState extends State<HomePage> with RouteAware {
               ),
             ),
           ).then((_) => _refreshData());
-        } else if (isFingerprintVerified) {
-          // Use fingerprint verification if only fingerprint is verified
+        } else if (isFaceVerified) {
+          // Fallback to face verification if fingerprint not available
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => FingerprintVerificationPage(
+              builder: (context) => FaceVerificationPageV2(
                 sessionId: sessionId,
                 courseCode: courseCode,
                 courseName: courseName,
