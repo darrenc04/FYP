@@ -1,0 +1,182 @@
+[
+  {
+    "path": "Sessions/BMIT2073/2025-12-28/session_info",
+    "data": {
+      "end_time": "2025-12-28T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. John Ooi",
+      "location": {
+        "latitude": 32.16,
+        "longitude": 101.73
+      },
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "2025-12-28T12:00:00Z",
+      "targetFrequency": 18100
+    }
+  },
+  {
+    "path": "Sessions/BMIT2073/2025-12-28/session_info",
+    "data": {
+      "end_time": "2025-12-28T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. John Ooi",
+      "location": {
+        "latitude": 32.16,
+        "longitude": 101.73
+      },
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "2025-12-28T12:00:00Z",
+      "targetFrequency": 18700
+    }
+  },
+  {
+    "path": "Sessions/BICT2083/2025-12-22/session_info",
+    "data": {
+      "end_time": "2025-12-22T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": true,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": {
+        "latitude": 32.15,
+        "longitude": 101.72
+      },
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Lecture",
+      "start_time": "2025-12-22T12:00:00Z",
+      "targetFrequency": 18600
+    }
+  },
+  {
+    "path": "Sessions/BMIT2073/2025-12-11/session_info",
+    "data": {
+      "end_time": "2025-12-11T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. John Ooi",
+      "location": {
+        "latitude": 32.16,
+        "longitude": 101.73
+      },
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "2025-12-11T12:00:00Z",
+      "targetFrequency": 19700
+    }
+  },
+  {
+    "path": "Sessions/BMSE3014/2025-12-27/session_info",
+    "data": {
+      "end_time": "2025-12-27T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. Lim Fung Ji",
+      "location": {
+        "latitude": 32.154166,
+        "longitude": 101.7266751
+      },
+      "physicalLocation": "K101",
+      "sessionsName": "Software Maintenance",
+      "sessionsType": "Tutorial",
+      "start_time": "2025-12-27T12:00:00Z",
+      "targetFrequency": 19200
+    }
+  },
+  {
+    "path": "Sessions/BMIT2073/2025-12-11/session_info",
+    "data": {
+      "end_time": "2025-12-11T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. John Ooi",
+      "location": {
+        "latitude": 32.16,
+        "longitude": 101.73
+      },
+      "physicalLocation": "L205",
+      "sessionsName": "Mobile Application Development",
+      "sessionsType": "Practical",
+      "start_time": "2025-12-11T12:00:00Z",
+      "targetFrequency": 18200
+    }
+  },
+  {
+    "path": "Sessions/BMSE3014/2025-12-13/session_info",
+    "data": {
+      "end_time": "2025-12-13T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": true,
+      "lecturerName": "Dr. Lim Fung Ji",
+      "location": {
+        "latitude": 32.154166,
+        "longitude": 101.7266751
+      },
+      "physicalLocation": "K101",
+      "sessionsName": "Software Maintenance",
+      "sessionsType": "Tutorial",
+      "start_time": "2025-12-13T12:00:00Z",
+      "targetFrequency": 18100
+    }
+  },
+  {
+    "path": "Sessions/BMSE3014/2025-12-16/session_info",
+    "data": {
+      "end_time": "2025-12-16T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": false,
+      "lecturerName": "Dr. Lim Fung Ji",
+      "location": {
+        "latitude": 32.154166,
+        "longitude": 101.7266751
+      },
+      "physicalLocation": "K101",
+      "sessionsName": "Software Maintenance",
+      "sessionsType": "Tutorial",
+      "start_time": "2025-12-16T12:00:00Z",
+      "targetFrequency": 18300
+    }
+  },
+  {
+    "path": "Sessions/BICT2083/2025-12-05/session_info",
+    "data": {
+      "end_time": "2025-12-05T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": false,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": {
+        "latitude": 32.15,
+        "longitude": 101.72
+      },
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Lecture",
+      "start_time": "2025-12-05T12:00:00Z",
+      "targetFrequency": 18600
+    }
+  },
+  {
+    "path": "Sessions/BICT2083/2025-12-25/session_info",
+    "data": {
+      "end_time": "2025-12-25T23:59:59Z",
+      "frequencyGeneratedAt": "2025-12-04T17:28:58.016999Z",
+      "isCancelled": true,
+      "lecturerName": "Prof. Ravi Kumar",
+      "location": {
+        "latitude": 32.15,
+        "longitude": 101.72
+      },
+      "physicalLocation": "D101",
+      "sessionsName": "Database Design",
+      "sessionsType": "Lecture",
+      "start_time": "2025-12-25T12:00:00Z",
+      "targetFrequency": 19900
+    }
+  }
+]
