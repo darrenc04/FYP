@@ -29,7 +29,7 @@ class AttendanceRecord {
     return AttendanceRecord(
       id: id,
       sessionId: data['sessionId'] ?? '',
-      courseName: data['courseName'] ?? 'Unknown Course',
+      courseName: data['sessionName'] ?? 'Unknown Course',
       markedAt: data['markedAt'] as Timestamp?,
       status: data['status'] ?? 'absent',
       verificationMethod: data['verificationMethod'] ?? 'unknown',

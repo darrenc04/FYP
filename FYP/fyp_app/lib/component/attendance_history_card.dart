@@ -130,7 +130,7 @@ class AttendanceHistoryCard extends StatelessWidget {
     } else if (sessionType.toLowerCase().contains('tutorial')) {
       return 'T';
     }
-    return 'C';
+    return 'P';
   }
 
   Color _getSessionTypeColor(String sessionType) {

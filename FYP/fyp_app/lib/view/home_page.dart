@@ -13,7 +13,7 @@ import 'teacher_dashboard_page.dart';
 import 'ultrasonic_page.dart';
 import 'face_verification_page.dart';
 import 'fingerprint_verification_page.dart';
-import 'insert_test_data_page.dart';
+import 'timetable_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -114,14 +114,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
                 onSettingsTap: () {
                   Navigator.pushNamed(context, '/settings');
                 },
-                onTestDataTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const InsertTestDataPage(),
-                    ),
-                  );
-                },
+                // onTestDataTap: () {
+                //   Navigator.push(
+                //     context,
+                //     MaterialPageRoute(
+                //       builder: (context) => const InsertTestDataPage(),
+                //     ),
+                //   );
+                // },
               ),
               const SizedBox(height: 28),
               HomeTitleRow(
@@ -139,6 +139,14 @@ class _HomePageState extends State<HomePage> with RouteAware {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const AttendanceOverviewPage(),
+                    ),
+                  );
+                },
+                onTimetableTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TimetablePage(),
                     ),
                   );
                 },
@@ -241,14 +249,26 @@ class _HomePageState extends State<HomePage> with RouteAware {
     if (session.isTutorialOrPractical) {
       final biometricStatus = await _controller.checkBiometricStatus();
 
-      if (biometricStatus['face'] == true) {
+      if (biometricStatus['fingerprint'] == true) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FingerprintVerificationPage(
+              sessionId: session.id,
+              courseCode: session.courseCode ?? 'Unknown',
+              courseName: session.sessionName,
+              sessionType: session.sessionType,
+            ),
+          ),
+        ).then((_) => _refreshData());
+      } else if (biometricStatus['face'] == true) {
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => FaceVerificationPageV2(
               sessionId: session.id,
               courseCode: session.courseCode ?? 'Unknown',
-              courseName: session.courseName ?? 'Unknown Course',
+              courseName: session.sessionName,
               sessionType: session.sessionType,
             ),
           ),

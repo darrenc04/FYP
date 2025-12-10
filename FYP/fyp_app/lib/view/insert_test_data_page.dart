@@ -59,30 +59,36 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
 
       // Generate weekly dates: past 3 weeks + today + future weeks
       List<String> weeklyDates = [];
-      
+
       // Add past weeks (negative offset)
       for (int week = 3; week >= 1; week--) {
         final weekDate = today.subtract(Duration(days: week * 7));
-        final dateStr = '${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}';
+        final dateStr =
+            '${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}';
         weeklyDates.add(dateStr);
       }
-      
+
       // Add today
-      final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      final todayStr =
+          '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
       weeklyDates.add(todayStr);
-      
+
       // Add future weeks
       for (int week = 1; week < numRecords; week++) {
         final weekDate = today.add(Duration(days: week * 7));
-        final dateStr = '${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}';
+        final dateStr =
+            '${weekDate.year}-${weekDate.month.toString().padLeft(2, '0')}-${weekDate.day.toString().padLeft(2, '0')}';
         weeklyDates.add(dateStr);
       }
 
       // For each existing session
       for (final sessionId in _existingSessions) {
         // Get the existing session data to use as template
-        final sessionDoc = await _firestore.collection('Sessions').doc(sessionId).get();
-        
+        final sessionDoc = await _firestore
+            .collection('Sessions')
+            .doc(sessionId)
+            .get();
+
         if (!sessionDoc.exists) {
           continue;
         }
@@ -93,10 +99,7 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
         for (final dateStr in weeklyDates) {
           // Prepare data using existing session info
           final data = {
-            'end_time': Timestamp.fromDate(
-              DateTime.parse('$dateStr 23:59:59'),
-            ),
-            'frequencyGeneratedAt': Timestamp.now(),
+            'end_time': Timestamp.fromDate(DateTime.parse('$dateStr 23:59:59')),
             'isCancelled': random.nextBool(),
             'lecturerName': sessionData['lecturerName'] ?? 'Unknown',
             'location': sessionData['location'] ?? GeoPoint(0, 0),
@@ -106,7 +109,6 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
             'start_time': Timestamp.fromDate(
               DateTime.parse('$dateStr 12:00:00'),
             ),
-            'targetFrequency': 18000 + (random.nextInt(21) * 100),
           };
 
           // Insert into existing session's subcollection
@@ -126,7 +128,8 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
       }
 
       setState(() {
-        _status = '✅ Successfully inserted ${_existingSessions.length} × $numRecords = $totalRecordCount records!';
+        _status =
+            '✅ Successfully inserted ${_existingSessions.length} × $numRecords = $totalRecordCount records!';
         _isInserting = false;
       });
 
@@ -165,27 +168,17 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.storage,
-              size: 64,
-              color: Colors.blue,
-            ),
+            const Icon(Icons.storage, size: 64, color: Colors.blue),
             const SizedBox(height: 24),
             const Text(
               'Insert Random Session Records',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
             Text(
               'Found ${_existingSessions.length} existing sessions',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -222,13 +215,17 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
                         _status,
                         style: TextStyle(
                           fontSize: 16,
-                          color: _status.contains('✅') ? Colors.green : Colors.red,
+                          color: _status.contains('✅')
+                              ? Colors.green
+                              : Colors.red,
                         ),
                         textAlign: TextAlign.center,
                       ),
                     ),
                   ElevatedButton.icon(
-                    onPressed: _existingSessions.isEmpty ? null : () => _insertRandomRecords(5),
+                    onPressed: _existingSessions.isEmpty
+                        ? null
+                        : () => _insertRandomRecords(5),
                     icon: const Icon(Icons.add),
                     label: const Text('Add 5 Records'),
                     style: ElevatedButton.styleFrom(
@@ -242,7 +239,9 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: _existingSessions.isEmpty ? null : () => _insertRandomRecords(10),
+                    onPressed: _existingSessions.isEmpty
+                        ? null
+                        : () => _insertRandomRecords(10),
                     icon: const Icon(Icons.add),
                     label: const Text('Add 10 Records'),
                     style: ElevatedButton.styleFrom(
@@ -256,7 +255,9 @@ class _InsertTestDataPageState extends State<InsertTestDataPage> {
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: _existingSessions.isEmpty ? null : () => _insertRandomRecords(20),
+                    onPressed: _existingSessions.isEmpty
+                        ? null
+                        : () => _insertRandomRecords(20),
                     icon: const Icon(Icons.add),
                     label: const Text('Add 20 Records'),
                     style: ElevatedButton.styleFrom(

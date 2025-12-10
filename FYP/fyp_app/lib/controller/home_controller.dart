@@ -312,14 +312,6 @@ class HomeController {
       samples.add((pcmSample >> 8) & 0xFF);
     }
 
-    final Directory appDocDir = await getApplicationDocumentsDirectory();
-    final String filePath = p.join(appDocDir.path, "tone_${frequency}hz.wav");
-    final file = File(filePath);
-
-    if (await file.exists()) {
-      return filePath;
-    }
-
     final dataSize = samples.length;
     final header = [
       0x52,
@@ -356,8 +348,25 @@ class HomeController {
       ..._intToBytes(dataSize, 4),
     ];
 
-    await file.writeAsBytes([...header, ...samples]);
-    return filePath;
+    final wavBytes = [...header, ...samples];
+
+    if (kIsWeb) {
+      // For Web: Return a Data URI instead of saving to file
+      final base64Audio = base64Encode(wavBytes);
+      return 'data:audio/wav;base64,$base64Audio';
+    } else {
+      // For Mobile: Save to file as before
+      final Directory appDocDir = await getApplicationDocumentsDirectory();
+      final String filePath = p.join(appDocDir.path, "tone_${frequency}hz.wav");
+      final file = File(filePath);
+
+      if (await file.exists()) {
+        return filePath;
+      }
+
+      await file.writeAsBytes(wavBytes);
+      return filePath;
+    }
   }
 
   List<int> _intToBytes(int value, int numBytes) {
@@ -389,9 +398,18 @@ class HomeController {
             'frequencyGeneratedAt': FieldValue.serverTimestamp(),
           });
 
-      final tonePath = await generateToneAudio(targetFrequency);
+      final toneSource = await generateToneAudio(targetFrequency);
       await tonePlayer.stop();
-      await tonePlayer.setFilePath(tonePath);
+
+      if (kIsWeb) {
+        // Play from Data URI
+        // Ensure just_audio supports Uri parsing for data:
+        await tonePlayer.setAudioSource(AudioSource.uri(Uri.parse(toneSource)));
+      } else {
+        // Play from File Path
+        await tonePlayer.setFilePath(toneSource);
+      }
+
       await tonePlayer.setLoopMode(LoopMode.one);
       await tonePlayer.play();
     } catch (e) {

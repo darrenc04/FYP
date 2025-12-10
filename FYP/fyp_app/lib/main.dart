@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fyp_app/admin/admin_dashboard_page.dart';
 import 'package:fyp_app/firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fyp_app/view/home_page.dart';
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/home': (context) => const HomePage(),
         '/settings': (context) => const SettingPage(),
+        '/admin-dashboard': (context) => const AdminDashboardPage(),
       },
     );
   }

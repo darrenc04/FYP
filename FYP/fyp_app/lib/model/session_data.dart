@@ -9,7 +9,6 @@ class SessionData {
   final Timestamp? startTime;
   final Timestamp? endTime;
   final String? courseCode;
-  final String? courseName;
 
   // Student-specific fields
   final bool attendanceMarked;
@@ -28,7 +27,6 @@ class SessionData {
     this.startTime,
     this.endTime,
     this.courseCode,
-    this.courseName,
     this.attendanceMarked = false,
     this.attendanceRevoked = false,
     this.revocationReason = '',
@@ -45,7 +43,6 @@ class SessionData {
       startTime: map['start_time'] as Timestamp?,
       endTime: map['end_time'] as Timestamp?,
       courseCode: map['courseCode'],
-      courseName: map['courseName'],
       attendanceMarked: map['attendanceMarked'] ?? false,
       attendanceRevoked: map['attendanceRevoked'] ?? false,
       revocationReason: map['revocationReason'] ?? '',
@@ -59,7 +56,7 @@ class SessionData {
     } else if (sessionType.toLowerCase().contains('tutorial')) {
       return 'T';
     }
-    return 'C';
+    return 'P';
   }
 
   bool get isLecture => sessionType.toLowerCase().contains('lecture');

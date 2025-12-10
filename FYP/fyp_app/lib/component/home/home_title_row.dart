@@ -4,12 +4,14 @@ class HomeTitleRow extends StatelessWidget {
   final String userRole;
   final VoidCallback? onDashboardTap;
   final VoidCallback? onHistoryTap;
+  final VoidCallback? onTimetableTap;
 
   const HomeTitleRow({
     Key? key,
     required this.userRole,
     this.onDashboardTap,
     this.onHistoryTap,
+    this.onTimetableTap,
   }) : super(key: key);
 
   @override
@@ -26,6 +28,25 @@ class HomeTitleRow extends StatelessWidget {
           ),
         ),
         const Spacer(),
+        // Timetable Icon (Visible to both)
+        Container(
+          margin: const EdgeInsets.only(right: 10),
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: const Color(0xFF81C3D7),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: IconButton(
+            onPressed: onTimetableTap,
+            padding: EdgeInsets.zero,
+            iconSize: 20,
+            icon: const Icon(
+              Icons.calendar_month_outlined,
+              color: Color(0xFF3D4A4F),
+            ),
+          ),
+        ),
         if (userRole == 'teacher')
           Container(
             margin: const EdgeInsets.only(right: 10),

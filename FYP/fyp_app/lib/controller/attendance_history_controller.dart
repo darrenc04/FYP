@@ -27,29 +27,13 @@ class AttendanceHistoryController {
         final data = doc.data();
         final courseName = data['courseName'] ?? 'Unknown Course';
         final sessionId = data['sessionId'] ?? '';
+        final sessionType = data['sessionType'] ?? 'Unknown Session Type';
+        final startTime = data['startTime'] as Timestamp?;
+        final endTime = data['endTime'] as Timestamp?;
 
         // Apply filter
         if (filterCourse != 'All' && courseName != filterCourse) {
           continue;
-        }
-
-        // Fetch session details for start and end times and session type
-        Timestamp? startTime;
-        Timestamp? endTime;
-        String sessionType = '';
-        try {
-          final sessionSnap = await _firestore
-              .collection('Sessions')
-              .doc(sessionId)
-              .get();
-
-          if (sessionSnap.exists) {
-            startTime = sessionSnap['start_time'] as Timestamp?;
-            endTime = sessionSnap['end_time'] as Timestamp?;
-            sessionType = sessionSnap['sessionsType'] ?? '';
-          }
-        } catch (e) {
-          debugPrint('Error fetching session details: $e');
         }
 
         records.add(
