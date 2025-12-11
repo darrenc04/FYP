@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-//import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -110,7 +110,15 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-      await GoogleSignIn().signOut();
+      try {
+        if (kIsWeb) {
+          await GoogleSignIn().disconnect();
+        }
+        await GoogleSignIn().signOut();
+      } catch (e) {
+        // Ignore google sign out errors, maybe user didn't log in with google
+        print("DEBUG: Google sign out error (ignored): $e");
+      }
     } catch (e) {
       rethrow;
     }

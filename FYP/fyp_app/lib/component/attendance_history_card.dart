@@ -164,7 +164,7 @@ class AttendanceHistoryCard extends StatelessWidget {
       case 'ultrasonic':
         return 'Ultrasonic';
       default:
-        return 'Verified';
+        return 'Present';
     }
   }
 }

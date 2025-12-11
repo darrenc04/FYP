@@ -67,6 +67,7 @@ class _HomePageState extends State<HomePage> with RouteAware {
     if (mounted && userData != null) {
       _userData = userData;
       final sessions = await _controller.fetchSessions(userData.role);
+      if (!mounted) return;
       setState(() {
         _sessions = sessions;
         _loading = false;

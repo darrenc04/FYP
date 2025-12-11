@@ -388,16 +388,16 @@ class _UltrasonicPageState extends State<UltrasonicPage>
                           'Taking Attendance',
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
-                        if (dominantFrequency != null) ...[
-                          const SizedBox(height: 12),
-                          Text(
-                            'Detecting: ${dominantFrequency!.toStringAsFixed(0)} Hz',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                        // if (dominantFrequency != null) ...[
+                        //   const SizedBox(height: 12),
+                        //   Text(
+                        //     'Detecting: ${dominantFrequency!.toStringAsFixed(0)} Hz',
+                        //     style: const TextStyle(
+                        //       color: Colors.white70,
+                        //       fontSize: 14,
+                        //     ),
+                        //   ),
+                        // ],
                       ],
                     ],
                   ],

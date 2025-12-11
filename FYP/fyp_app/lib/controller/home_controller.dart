@@ -63,7 +63,8 @@ class HomeController {
   /// Fetch holidays from Calendarific API for Malaysia
   Future<List<String>> _fetchHolidaysFromApi(int year) async {
     try {
-      const String apiKey = 'USE WHEN NEEDED';
+      //const String apiKey = 'SWt92k3yzLVrXcUFdXanvvqbvqokcqao';
+      const String apiKey = '';
 
       final url = Uri.parse(
         'https://calendarific.com/api/v2/holidays?api_key=$apiKey&country=MY&year=$year',
@@ -234,6 +235,12 @@ class HomeController {
           debugPrint('Error fetching session $sessionId for $todayStr: $e');
         }
       }
+
+      // Sort sessions by start time ascending
+      sessions.sort((a, b) {
+        if (a.startTime == null || b.startTime == null) return 0;
+        return a.startTime!.compareTo(b.startTime!);
+      });
 
       return sessions;
     } catch (e) {
