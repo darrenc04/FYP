@@ -151,16 +151,31 @@ class LocationVerificationController {
     final deviceToken = await getDeviceId();
 
     // Get session data for course information
+    final now = DateTime.now();
+    final todayStr =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
     final sessionDoc = await FirebaseFirestore.instance
         .collection('Sessions')
         .doc(sessionId)
+        .collection(todayStr)
+        .doc('session_info')
         .get();
 
     final sessionData = sessionDoc.data();
-    final courseName = sessionData?['sessionsName'] ?? 'Unknown';
+    String courseName = sessionData?['sessionsName'] ?? 'Unknown';
+    final startTime = sessionData?['start_time'] ?? 'Unknown';
+    final endTime = sessionData?['end_time'] ?? 'Unknown';
+
+    if (!sessionDoc.exists) {
+      final parentDoc = await FirebaseFirestore.instance
+          .collection('Sessions')
+          .doc(sessionId)
+          .get();
+      courseName = parentDoc.data()?['sessionsName'] ?? 'Unknown';
+    }
 
     // Check for existing attendance
-    final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
@@ -209,6 +224,8 @@ class LocationVerificationController {
       'deviceToken': deviceToken,
       'faceConfidence': faceConfidence,
       'verificationMethod': verificationMethod,
+      'startTime': startTime,
+      'endTime': endTime,
     });
 
     debugPrint('Attendance saved successfully');

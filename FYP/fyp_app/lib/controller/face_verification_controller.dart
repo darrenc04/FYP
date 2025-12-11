@@ -9,7 +9,7 @@ class FaceVerificationController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ImagePicker _imagePicker = ImagePicker();
 
-  static const String DEEPFACE_API_URL = 'http://192.168.1.109:5000';
+  static const String DEEPFACE_API_URL = 'http://10.119.150.15:5000';
 
   /// Check if DeepFace server is available
   Future<bool> checkServerHealth() async {

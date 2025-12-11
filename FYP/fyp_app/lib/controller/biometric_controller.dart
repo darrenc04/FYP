@@ -14,7 +14,7 @@ class BiometricController {
   final ImagePicker _imagePicker = ImagePicker();
 
   // API Configuration
-  static const String DEEPFACE_API_URL = 'http://192.168.1.109:5000';
+  static const String DEEPFACE_API_URL = 'http://10.119.150.15:5000';
 
   Future<BiometricSettings> loadBiometricSettings({
     bool isMockMode = false,

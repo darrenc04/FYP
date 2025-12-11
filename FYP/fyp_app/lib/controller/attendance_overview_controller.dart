@@ -48,9 +48,8 @@ class AttendanceOverviewController {
       }
 
       // Convert to list and calculate percentage
-      // We use a baseline of 14 sessions (standard semester) to ensure the percentage
+      // We use a baseline of 7 sessions (standard semester) to ensure the percentage
       // starts at 100% and decreases gradually, rather than starting at 0%.
-      // If total recorded sessions > 14, we use the actual total.
       final courseList = courseMap.values.map((course) {
         final int baselineTotal = 7;
         final int effectiveTotal = course.totalSessions > baselineTotal
